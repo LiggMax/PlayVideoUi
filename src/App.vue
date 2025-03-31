@@ -1,16 +1,6 @@
 <script setup>
-import { onMounted } from 'vue'
 import NavBar from './components/NavBar.vue'
-import { useUserStore } from './stores/user'
 
-const userStore = useUserStore()
-
-// 应用启动时加载用户信息
-onMounted(async () => {
-  if (userStore.token && !userStore.user) {
-    await userStore.fetchCurrentUser()
-  }
-})
 </script>
 
 <template>

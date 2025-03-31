@@ -133,8 +133,9 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { User, Lock, Message, Promotion, ChatDotRound, Position } from '@element-plus/icons-vue'
-import { useUserStore } from '../stores/user'
+import { User, Lock, Message } from '@element-plus/icons-vue'
+import { useUserStore } from '../store/user'
+import { ElMessage } from 'element-plus'
 
 const activeTab = ref('login')
 const rememberMe = ref(false)

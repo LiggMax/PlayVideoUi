@@ -62,7 +62,7 @@
                 <p class="upload-time">发布于: {{ formatDate(item.createTime) }}</p>
                 <div class="video-actions">
                   <el-button type="primary" size="small" @click="editVideo(item)">编辑</el-button>
-                  <el-button type="danger" size="small" @click="deleteVideo(item.id)">删除</el-button>
+                  <el-button type="danger" size="small" @click="handleDeleteVideo(item.id)">删除</el-button>
                 </div>
               </div>
             </el-card>
@@ -218,8 +218,9 @@
 import { ref, onMounted, reactive, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useUserStore } from '../stores/user'
+import { useUserStore } from '../store/user'
 import { Plus, VideoCamera } from '@element-plus/icons-vue'
+import { uploadVideo, uploadCover, saveVideo, getMyVideos, deleteVideo as deleteVideoApi } from '../api/video'
 
 const router = useRouter()
 const route = useRoute()
@@ -444,19 +445,55 @@ const handleUpload = async () => {
 
     try {
       uploading.value = true
-      // TODO: 实现实际的视频上传逻辑
-      // 1. 先上传封面图片和视频文件获取URL
-      // 2. 再提交表单数据
       
-      // 模拟上传成功
-      setTimeout(() => {
-        ElMessage.success('视频发布成功')
-        showUploadDialog.value = false
-        resetUploadForm()
-        // 加载我的视频列表
-        loadMyVideos()
+      // 1. 上传视频文件
+      const videoResponse = await uploadVideo(uploadForm.videoFile)
+      
+      if (!videoResponse.success) {
+        ElMessage.error('视频上传失败: ' + videoResponse.message)
         uploading.value = false
-      }, 1500)
+        return
+      }
+      
+      // 2. 上传封面图片
+      let coverResponse = null
+      if (uploadForm.coverFile) {
+        coverResponse = await uploadCover(uploadForm.coverFile)
+        
+        if (!coverResponse.success) {
+          ElMessage.error('封面上传失败: ' + coverResponse.message)
+          uploading.value = false
+          return
+        }
+      }
+      
+      // 3. 保存视频信息
+      const videoData = {
+        title: uploadForm.title,
+        description: uploadForm.description,
+        category: uploadForm.category,
+        videoPath: videoResponse.data.relativePath,
+        videoUrl: videoResponse.data.videoUrl,
+        coverPath: coverResponse ? coverResponse.data.relativePath : null,
+        coverUrl: coverResponse ? coverResponse.data.coverUrl : null,
+        tags: uploadForm.tags.join(',')
+      }
+      
+      const saveResponse = await saveVideo(videoData)
+      
+      if (!saveResponse.success) {
+        ElMessage.error('视频信息保存失败: ' + saveResponse.message)
+        uploading.value = false
+        return
+      }
+      
+      ElMessage.success('视频发布成功')
+      showUploadDialog.value = false
+      resetUploadForm()
+      
+      // 加载我的视频列表
+      loadMyVideos()
+      uploading.value = false
     } catch (error) {
       console.error('视频上传失败:', error)
       ElMessage.error('视频上传失败，请稍后重试')
@@ -481,41 +518,26 @@ const resetUploadForm = () => {
 const loadMyVideos = async (page = 1) => {
   loading.value = true
   try {
-    // TODO: 调用后端API获取我的视频列表
-    // const response = await getUserVideos(page)
-    // myVideoList.value = response.data
-    // myVideoTotal.value = response.total
+    const response = await getMyVideos(page, 10)
     
-    // 模拟数据
-    setTimeout(() => {
-      myVideoList.value = [
-        {
-          id: 1,
-          title: '我的示例视频1',
-          coverUrl: 'https://via.placeholder.com/300x200',
-          duration: 180,
-          views: 256,
-          likes: 24,
-          createTime: new Date()
-        },
-        {
-          id: 2,
-          title: '我的示例视频2',
-          coverUrl: 'https://via.placeholder.com/300x200',
-          duration: 360,
-          views: 128,
-          likes: 12,
-          createTime: new Date(Date.now() - 24 * 60 * 60 * 1000)
-        }
-      ]
-      myVideoTotal.value = 2
+    if (response.success) {
+      myVideoList.value = response.data.videos
+      myVideoTotal.value = response.data.total
       // 更新用户统计
       userStats.videoCount = myVideoTotal.value
-      loading.value = false
-    }, 500)
+    } else {
+      ElMessage.error('获取视频列表失败: ' + response.message)
+      myVideoList.value = []
+      myVideoTotal.value = 0
+    }
+    
+    loading.value = false
   } catch (error) {
     console.error('获取我的视频列表失败:', error)
+    ElMessage.error('获取视频列表失败，请稍后重试')
     loading.value = false
+    myVideoList.value = []
+    myVideoTotal.value = 0
   }
 }
 
@@ -526,23 +548,23 @@ const editVideo = (video) => {
 }
 
 // 删除视频
-const deleteVideo = (videoId) => {
+const handleDeleteVideo = (videoId) => {
   ElMessageBox.confirm('确定要删除这个视频吗？此操作不可逆', '警告', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
   }).then(async () => {
     try {
-      // TODO: 调用后端API删除视频
-      // await deleteVideoAPI(videoId)
+      const response = await deleteVideoApi(videoId)
       
-      // 模拟删除成功
-      setTimeout(() => {
+      if (response.success) {
         myVideoList.value = myVideoList.value.filter(item => item.id !== videoId)
         myVideoTotal.value--
         userStats.videoCount = myVideoTotal.value
         ElMessage.success('视频已删除')
-      }, 300)
+      } else {
+        ElMessage.error('删除视频失败: ' + response.message)
+      }
     } catch (error) {
       console.error('删除视频失败:', error)
       ElMessage.error('删除视频失败，请稍后重试')

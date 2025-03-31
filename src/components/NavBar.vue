@@ -89,7 +89,7 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import LoginRegister from './LoginRegister.vue'
-import { useUserStore } from '../stores/user'
+import { useUserStore } from '../store/user'
 
 const loginDialogVisible = ref(false)
 const loginRegisterRef = ref(null)

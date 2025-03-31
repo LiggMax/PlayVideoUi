@@ -4,7 +4,8 @@ import {ElMessage} from 'element-plus'
 // 创建axios实例
 const request = axios.create({
   baseURL: 'http://localhost:8080',
-  timeout: 10000  // 请求超时时间
+  timeout: 10000,  // 请求超时时间
+  withCredentials: true // 允许跨域携带cookie
 })
 
 // 请求拦截器
@@ -13,7 +14,10 @@ request.interceptors.request.use(
     // 从localStorage获取token
     const token = localStorage.getItem('token')
     if (token) {
-      config.headers['Authorization'] = 'Bearer ' + token
+      // 确保headers对象存在
+      config.headers = config.headers || {}
+      // 直接使用token，不添加Bearer前缀（后端会添加）
+      config.headers['Authorization'] = token
     }
     return config
   },
