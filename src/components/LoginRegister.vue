@@ -89,6 +89,30 @@
               </template>
             </el-input>
           </el-form-item>
+          <el-form-item prop="nickname">
+            <el-input 
+              v-model="registerForm.nickname" 
+              placeholder="昵称" 
+              class="custom-input"
+              size="large"
+            >
+              <template #prefix>
+                <el-icon><User /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="email">
+            <el-input 
+              v-model="registerForm.email" 
+              placeholder="邮箱" 
+              class="custom-input"
+              size="large"
+            >
+              <template #prefix>
+                <el-icon><Message /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
           <el-form-item>
             <el-button 
               type="primary" 
@@ -108,14 +132,19 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { User, Lock, Promotion, ChatDotRound, Position } from '@element-plus/icons-vue'
+import { User, Lock, Message, Promotion, ChatDotRound, Position } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { login, register } from '../api/user'
+import { setUser, setToken } from '../utils/auth'
 
 const activeTab = ref('login')
 const loading = ref(false)
 const loginFormRef = ref(null)
 const registerFormRef = ref(null)
 const rememberMe = ref(false)
+
+// 发送登录成功事件
+const emit = defineEmits(['login-success', 'register-success'])
 
 // 登录表单数据和验证规则
 const loginForm = reactive({
@@ -132,7 +161,10 @@ const loginRules = {
 const registerForm = reactive({
   username: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  nickname: '',
+  email: '',
+  avatarUrl: 'https://via.placeholder.com/150' // 默认头像
 })
 
 const validateConfirmPassword = (rule, value, callback) => {
@@ -145,12 +177,33 @@ const validateConfirmPassword = (rule, value, callback) => {
   }
 }
 
+const validateEmail = (rule, value, callback) => {
+  if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    callback(new Error('请输入有效的邮箱地址'))
+  } else {
+    callback()
+  }
+}
+
 const registerRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, max: 20, message: '用户名长度在3到20个字符之间', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码长度不能少于6个字符', trigger: 'blur' }
+  ],
   confirmPassword: [
     { required: true, message: '请确认密码', trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' }
+  ],
+  nickname: [
+    { required: false, message: '请输入昵称', trigger: 'blur' }
+  ],
+  email: [
+    { required: false, message: '请输入邮箱', trigger: 'blur' },
+    { validator: validateEmail, trigger: 'blur' }
   ]
 }
 
@@ -158,33 +211,95 @@ const registerRules = {
 const handleLogin = async () => {
   if (!loginFormRef.value) return
   
-  await loginFormRef.value.validate((valid) => {
-    if (valid) {
-      loading.value = true
-      // 这里添加登录请求逻辑
-      setTimeout(() => {
-        ElMessage.success('登录成功')
-        loading.value = false
-      }, 1000)
-    }
-  })
+  try {
+    await loginFormRef.value.validate(async (valid) => {
+      if (valid) {
+        loading.value = true
+        try {
+          // 调用登录API
+          const response = await login(loginForm)
+          
+          if (response.success) {
+            ElMessage.success('登录成功')
+            
+            // 记住用户信息
+            if (rememberMe.value) {
+              setToken('mock-token') // 实际中应使用后端返回的token
+            }
+            
+            // 存储用户信息
+            setUser(response.user)
+            
+            // 通知父组件登录成功
+            emit('login-success', response.user)
+            
+            // 关闭登录弹窗（由父组件处理）
+          } else {
+            ElMessage.error(response.message || '登录失败')
+          }
+        } catch (error) {
+          console.error('登录失败:', error)
+          ElMessage.error('登录失败，请稍后重试')
+        } finally {
+          loading.value = false
+        }
+      }
+    })
+  } catch (error) {
+    console.error('表单验证错误:', error)
+  }
 }
 
 // 注册处理函数
 const handleRegister = async () => {
   if (!registerFormRef.value) return
   
-  await registerFormRef.value.validate((valid) => {
-    if (valid) {
-      loading.value = true
-      // 这里添加注册请求逻辑
-      setTimeout(() => {
-        ElMessage.success('注册成功')
-        loading.value = false
-        activeTab.value = 'login'
-      }, 1000)
-    }
-  })
+  try {
+    await registerFormRef.value.validate(async (valid) => {
+      if (valid) {
+        loading.value = true
+        
+        try {
+          // 准备注册数据（移除确认密码字段）
+          const registerData = {
+            username: registerForm.username,
+            password: registerForm.password,
+            nickname: registerForm.nickname || registerForm.username, // 如果未提供昵称，使用用户名
+            email: registerForm.email,
+            avatarUrl: registerForm.avatarUrl
+          }
+          
+          // 调用注册API
+          const response = await register(registerData)
+          
+          if (response.success) {
+            ElMessage.success('注册成功，请登录')
+            
+            // 清空表单
+            registerFormRef.value.resetFields()
+            
+            // 切换到登录选项卡
+            activeTab.value = 'login'
+            
+            // 预填登录表单
+            loginForm.username = registerData.username
+            
+            // 通知父组件注册成功
+            emit('register-success')
+          } else {
+            ElMessage.error(response.message || '注册失败')
+          }
+        } catch (error) {
+          console.error('注册失败:', error)
+          ElMessage.error('注册失败，请稍后重试')
+        } finally {
+          loading.value = false
+        }
+      }
+    })
+  } catch (error) {
+    console.error('表单验证错误:', error)
+  }
 }
 
 defineExpose({
@@ -199,6 +314,26 @@ defineExpose({
   color: #333;
 }
 
+.header-image {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.logo-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  margin-bottom: 15px;
+}
+
+.welcome-text {
+  font-size: 1.5rem;
+  color: #409EFF;
+  margin: 5px 0 15px;
+  font-weight: 500;
+}
 
 .login-tabs {
   margin-bottom: 15px;
@@ -238,5 +373,67 @@ defineExpose({
   text-decoration: underline;
 }
 
+.other-login {
+  margin-top: 20px;
+}
 
+.divider {
+  display: flex;
+  align-items: center;
+  color: #909399;
+  font-size: 14px;
+  margin: 20px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background-color: #EBEEF5;
+}
+
+.divider::before {
+  margin-right: 10px;
+}
+
+.divider::after {
+  margin-left: 10px;
+}
+
+.social-icons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.social-icon {
+  font-size: 18px;
+  color: #606266;
+}
+
+:deep(.el-tabs__item) {
+  font-size: 16px;
+  padding: 0 15px 15px;
+}
+
+:deep(.el-tabs__nav) {
+  width: 100%;
+  display: flex;
+}
+
+:deep(.el-tabs__item) {
+  flex: 1;
+  text-align: center;
+}
+
+:deep(.el-tabs__active-bar) {
+  width: 50% !important;
+  transform: translateX(0);
+}
+
+:deep(.el-tabs__nav-wrap::after) {
+  height: 1px;
+}
 </style> 
