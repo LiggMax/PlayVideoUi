@@ -128,13 +128,15 @@ const handleCommand = (command) => {
       router.push('/profile')
       break
     case 'upload':
-      router.push({ path: '/profile', query: { tab: 'upload' } })
+      router.push('/profile')
       break
     case 'favorites':
-      router.push({ path: '/profile', query: { tab: 'favorites' } })
+      // 先不实现收藏功能，暂时也跳转到个人中心
+      router.push('/profile')
       break
     case 'history':
-      router.push({ path: '/profile', query: { tab: 'history' } })
+      // 先不实现历史记录功能，暂时也跳转到个人中心
+      router.push('/profile')
       break
     case 'logout':
       handleLogout()
