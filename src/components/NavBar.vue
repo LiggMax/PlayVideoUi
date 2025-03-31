@@ -40,6 +40,9 @@
             <el-dropdown-item command="profile">
               <el-icon><User /></el-icon>个人中心
             </el-dropdown-item>
+            <el-dropdown-item command="upload">
+              <el-icon><VideoCamera /></el-icon>上传视频
+            </el-dropdown-item>
             <el-dropdown-item command="favorites">
               <el-icon><Star /></el-icon>我的收藏
             </el-dropdown-item>
@@ -81,7 +84,8 @@ import {
   Star, 
   Clock, 
   ArrowDown, 
-  SwitchButton 
+  SwitchButton,
+  VideoCamera
 } from '@element-plus/icons-vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import LoginRegister from './LoginRegister.vue'
@@ -121,13 +125,16 @@ const handleRegisterSuccess = () => {
 const handleCommand = (command) => {
   switch (command) {
     case 'profile':
-      router.push('/user/profile')
+      router.push('/profile')
+      break
+    case 'upload':
+      router.push({ path: '/profile', query: { tab: 'upload' } })
       break
     case 'favorites':
-      router.push('/user/favorites')
+      router.push({ path: '/profile', query: { tab: 'favorites' } })
       break
     case 'history':
-      router.push('/user/history')
+      router.push({ path: '/profile', query: { tab: 'history' } })
       break
     case 'logout':
       handleLogout()

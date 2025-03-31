@@ -1,0 +1,947 @@
+<template>
+  <div class="profile-container">
+    <el-row :gutter="20">
+      <!-- 左侧用户信息卡片 -->
+      <el-col :span="6">
+        <el-card class="user-card">
+          <div class="user-avatar">
+            <el-avatar :size="100" :src="userStore.avatar" />
+          </div>
+          <div class="user-info">
+            <h2>{{ userStore.nickname }}</h2>
+            <p>用户名: {{ userStore.username }}</p>
+            <p>注册时间: {{ formatDate(userStore.user?.createTime) }}</p>
+          </div>
+          <div class="user-stats">
+            <div class="stat-item">
+              <span class="stat-value">{{ userStats.historyCount || 0 }}</span>
+              <span class="stat-label">历史记录</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ userStats.favoriteCount || 0 }}</span>
+              <span class="stat-label">收藏</span>
+            </div>
+          </div>
+          <div class="user-actions">
+            <el-button type="primary" @click="showEditUserDialog = true">
+              编辑个人信息
+            </el-button>
+          </div>
+        </el-card>
+      </el-col>
+
+      <!-- 右侧内容区 -->
+      <el-col :span="18">
+        <el-tabs v-model="activeTab" class="profile-tabs" @tab-change="handleTabChange">
+          <!-- 历史记录标签页 -->
+          <el-tab-pane label="历史记录" name="history" data-tab="history">
+            <div v-if="loading" class="loading-container">
+              <el-skeleton :rows="3" animated />
+            </div>
+            <div v-else-if="!historyList.length" class="empty-data">
+              <el-empty description="暂无观看历史" />
+            </div>
+            <div v-else class="video-list">
+              <el-card v-for="item in historyList" :key="item.id" class="video-item">
+                <div class="video-thumb" @click="goToVideo(item.videoId)">
+                  <img :src="item.video.coverUrl" alt="视频封面" />
+                  <span class="video-duration">{{ formatDuration(item.video.duration) }}</span>
+                </div>
+                <div class="video-info">
+                  <h3 class="video-title" @click="goToVideo(item.videoId)">{{ item.video.title }}</h3>
+                  <p class="video-uploader">{{ item.video.uploaderName }}</p>
+                  <p class="watch-time">观看于: {{ formatDate(item.watchTime) }}</p>
+                </div>
+              </el-card>
+              <el-pagination
+                v-if="historyTotal > 10"
+                layout="prev, pager, next"
+                :total="historyTotal"
+                :page-size="10"
+                @current-change="historyPageChange"
+              />
+            </div>
+          </el-tab-pane>
+
+          <!-- 收藏标签页 -->
+          <el-tab-pane label="我的收藏" name="favorites" data-tab="favorites">
+            <div v-if="loading" class="loading-container">
+              <el-skeleton :rows="3" animated />
+            </div>
+            <div v-else-if="!favoriteList.length" class="empty-data">
+              <el-empty description="暂无收藏视频" />
+            </div>
+            <div v-else class="video-list">
+              <el-card v-for="item in favoriteList" :key="item.id" class="video-item">
+                <div class="video-thumb" @click="goToVideo(item.videoId)">
+                  <img :src="item.video.coverUrl" alt="视频封面" />
+                  <span class="video-duration">{{ formatDuration(item.video.duration) }}</span>
+                </div>
+                <div class="video-info">
+                  <h3 class="video-title" @click="goToVideo(item.videoId)">{{ item.video.title }}</h3>
+                  <p class="video-uploader">{{ item.video.uploaderName }}</p>
+                  <p class="favorite-time">收藏于: {{ formatDate(item.favoriteTime) }}</p>
+                  <el-button type="danger" size="small" @click="removeFavorite(item.id)">
+                    取消收藏
+                  </el-button>
+                </div>
+              </el-card>
+              <el-pagination
+                v-if="favoriteTotal > 10"
+                layout="prev, pager, next"
+                :total="favoriteTotal"
+                :page-size="10"
+                @current-change="favoritePageChange"
+              />
+            </div>
+          </el-tab-pane>
+
+          <!-- 发布视频标签页 -->
+          <el-tab-pane label="发布视频" name="upload" data-tab="upload">
+            <div class="upload-container">
+              <el-form ref="uploadFormRef" :model="uploadForm" :rules="uploadRules" label-width="100px">
+                <el-form-item label="视频标题" prop="title">
+                  <el-input v-model="uploadForm.title" placeholder="请输入视频标题" />
+                </el-form-item>
+                
+                <el-form-item label="视频描述" prop="description">
+                  <el-input v-model="uploadForm.description" type="textarea" :rows="4" placeholder="请输入视频描述" />
+                </el-form-item>
+                
+                <el-form-item label="封面图片" prop="coverUrl">
+                  <el-upload
+                    class="cover-uploader"
+                    action="#"
+                    :auto-upload="false"
+                    :show-file-list="false"
+                    :on-change="handleCoverChange">
+                    <img v-if="coverPreview" :src="coverPreview" class="cover-preview" />
+                    <el-icon v-else class="cover-uploader-icon"><Plus /></el-icon>
+                  </el-upload>
+                  <div class="el-upload__tip">
+                    点击上传封面图片，支持jpg、png格式
+                  </div>
+                </el-form-item>
+                
+                <el-form-item label="视频文件" prop="videoFile">
+                  <el-upload
+                    class="video-uploader"
+                    action="#"
+                    :auto-upload="false"
+                    :show-file-list="true"
+                    :limit="1"
+                    :on-change="handleVideoChange"
+                    :on-exceed="handleExceed"
+                    :before-remove="handleBeforeRemove">
+                    <el-button type="primary">选择视频文件</el-button>
+                    <template #tip>
+                      <div class="el-upload__tip">
+                        支持mp4、avi、mov等常见视频格式，单个文件不超过500MB
+                      </div>
+                    </template>
+                  </el-upload>
+                </el-form-item>
+                
+                <el-form-item label="分类" prop="category">
+                  <el-select v-model="uploadForm.category" placeholder="请选择视频分类">
+                    <el-option label="科技" value="technology" />
+                    <el-option label="游戏" value="game" />
+                    <el-option label="音乐" value="music" />
+                    <el-option label="电影" value="movie" />
+                    <el-option label="动画" value="animation" />
+                    <el-option label="运动" value="sports" />
+                    <el-option label="美食" value="food" />
+                    <el-option label="旅游" value="travel" />
+                    <el-option label="教育" value="education" />
+                    <el-option label="其他" value="other" />
+                  </el-select>
+                </el-form-item>
+                
+                <el-form-item label="标签" prop="tags">
+                  <el-tag
+                    v-for="tag in uploadForm.tags"
+                    :key="tag"
+                    closable
+                    @close="handleRemoveTag(tag)"
+                    class="tag-item">
+                    {{ tag }}
+                  </el-tag>
+                  <el-input
+                    v-if="tagInputVisible"
+                    ref="tagInputRef"
+                    v-model="tagInput"
+                    class="tag-input"
+                    size="small"
+                    @keyup.enter="handleAddTag"
+                    @blur="handleAddTag"
+                  />
+                  <el-button v-else class="button-new-tag" size="small" @click="showTagInput">
+                    + 新标签
+                  </el-button>
+                </el-form-item>
+                
+                <el-form-item>
+                  <el-button type="primary" @click="handleUpload" :loading="uploading">发布视频</el-button>
+                  <el-button @click="resetUploadForm">重置</el-button>
+                </el-form-item>
+              </el-form>
+            </div>
+          </el-tab-pane>
+          
+          <!-- 我的视频标签页 -->
+          <el-tab-pane label="我的视频" name="myVideos" data-tab="myVideos">
+            <div v-if="loading" class="loading-container">
+              <el-skeleton :rows="3" animated />
+            </div>
+            <div v-else-if="!myVideoList.length" class="empty-data">
+              <el-empty description="您还没有发布过视频" />
+            </div>
+            <div v-else class="video-list">
+              <el-card v-for="item in myVideoList" :key="item.id" class="video-item">
+                <div class="video-thumb" @click="goToVideo(item.id)">
+                  <img :src="item.coverUrl" alt="视频封面" />
+                  <span class="video-duration">{{ formatDuration(item.duration) }}</span>
+                </div>
+                <div class="video-info">
+                  <h3 class="video-title" @click="goToVideo(item.id)">{{ item.title }}</h3>
+                  <p class="video-stats">播放量: {{ item.views || 0 }} · 点赞: {{ item.likes || 0 }}</p>
+                  <p class="upload-time">发布于: {{ formatDate(item.createTime) }}</p>
+                  <div class="video-actions">
+                    <el-button type="primary" size="small" @click="editVideo(item)">编辑</el-button>
+                    <el-button type="danger" size="small" @click="deleteVideo(item.id)">删除</el-button>
+                  </div>
+                </div>
+              </el-card>
+              <el-pagination
+                v-if="myVideoTotal > 10"
+                layout="prev, pager, next"
+                :total="myVideoTotal"
+                :page-size="10"
+                @current-change="myVideoPageChange"
+              />
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </el-col>
+    </el-row>
+
+    <!-- 编辑用户信息对话框 -->
+    <el-dialog
+      v-model="showEditUserDialog"
+      title="编辑个人信息"
+      width="400px"
+    >
+      <el-form
+        ref="userFormRef"
+        :model="userForm"
+        :rules="userFormRules"
+        label-width="100px"
+      >
+        <el-form-item label="昵称" prop="nickname">
+          <el-input v-model="userForm.nickname" />
+        </el-form-item>
+        <el-form-item label="头像URL" prop="avatarUrl">
+          <el-input v-model="userForm.avatarUrl" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showEditUserDialog = false">取消</el-button>
+          <el-button type="primary" @click="updateUserInfo" :loading="updating">
+            保存
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, reactive, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useUserStore } from '../stores/user'
+import { Plus } from '@element-plus/icons-vue'
+
+const router = useRouter()
+const route = useRoute()
+const userStore = useUserStore()
+
+// 如果用户未登录，重定向到首页
+if (!userStore.isLoggedIn) {
+  ElMessage.warning('请先登录')
+  router.push('/')
+}
+
+// 用户统计数据
+const userStats = reactive({
+  historyCount: 0,
+  favoriteCount: 0
+})
+
+// 页面状态
+const activeTab = ref('history')
+const loading = ref(false)
+const updating = ref(false)
+const showEditUserDialog = ref(false)
+
+// 历史记录和收藏
+const historyList = ref([])
+const historyTotal = ref(0)
+const favoriteList = ref([])
+const favoriteTotal = ref(0)
+
+// 编辑用户表单
+const userFormRef = ref(null)
+const userForm = reactive({
+  nickname: userStore.nickname,
+  avatarUrl: userStore.avatar
+})
+const userFormRules = {
+  nickname: [
+    { required: true, message: '请输入昵称', trigger: 'blur' },
+    { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+  ]
+}
+
+// 上传视频相关
+const uploadFormRef = ref(null)
+const tagInputRef = ref(null)
+const uploading = ref(false)
+const tagInputVisible = ref(false)
+const tagInput = ref('')
+const coverPreview = ref('')
+const uploadForm = reactive({
+  title: '',
+  description: '',
+  coverUrl: '',
+  videoFile: null,
+  category: '',
+  tags: []
+})
+const uploadRules = {
+  title: [
+    { required: true, message: '请输入视频标题', trigger: 'blur' },
+    { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+  ],
+  description: [
+    { required: true, message: '请输入视频描述', trigger: 'blur' }
+  ],
+  videoFile: [
+    { required: true, message: '请上传视频文件', trigger: 'change' }
+  ],
+  category: [
+    { required: true, message: '请选择视频分类', trigger: 'change' }
+  ]
+}
+
+// 我的视频列表
+const myVideoList = ref([])
+const myVideoTotal = ref(0)
+
+// 加载用户统计数据
+const loadUserStats = async () => {
+  try {
+    // TODO: 调用后端API获取用户统计数据
+    // const response = await getUserStats()
+    // userStats.historyCount = response.historyCount
+    // userStats.favoriteCount = response.favoriteCount
+    
+    // 模拟数据
+    userStats.historyCount = 15
+    userStats.favoriteCount = 8
+  } catch (error) {
+    console.error('获取用户统计数据失败:', error)
+  }
+}
+
+// 加载历史记录
+const loadHistory = async (page = 1) => {
+  loading.value = true
+  try {
+    // TODO: 调用后端API获取历史记录
+    // const response = await getUserHistory(page)
+    // historyList.value = response.data
+    // historyTotal.value = response.total
+    
+    // 模拟数据
+    setTimeout(() => {
+      historyList.value = [
+        {
+          id: 1,
+          videoId: 1,
+          watchTime: new Date(),
+          video: {
+            id: 1,
+            title: '示例视频1',
+            coverUrl: 'https://via.placeholder.com/300x200',
+            duration: 300,
+            uploaderName: '示例用户1'
+          }
+        },
+        {
+          id: 2,
+          videoId: 2,
+          watchTime: new Date(),
+          video: {
+            id: 2,
+            title: '示例视频2',
+            coverUrl: 'https://via.placeholder.com/300x200',
+            duration: 600,
+            uploaderName: '示例用户2'
+          }
+        }
+      ]
+      historyTotal.value = 15
+      loading.value = false
+    }, 500)
+  } catch (error) {
+    console.error('获取历史记录失败:', error)
+    loading.value = false
+  }
+}
+
+// 加载收藏
+const loadFavorites = async (page = 1) => {
+  loading.value = true
+  try {
+    // TODO: 调用后端API获取收藏列表
+    // const response = await getUserFavorites(page)
+    // favoriteList.value = response.data
+    // favoriteTotal.value = response.total
+    
+    // 模拟数据
+    setTimeout(() => {
+      favoriteList.value = [
+        {
+          id: 1,
+          videoId: 3,
+          favoriteTime: new Date(),
+          video: {
+            id: 3,
+            title: '收藏视频1',
+            coverUrl: 'https://via.placeholder.com/300x200',
+            duration: 450,
+            uploaderName: '示例用户3'
+          }
+        }
+      ]
+      favoriteTotal.value = 8
+      loading.value = false
+    }, 500)
+  } catch (error) {
+    console.error('获取收藏列表失败:', error)
+    loading.value = false
+  }
+}
+
+// 更新用户信息
+const updateUserInfo = async () => {
+  await userFormRef.value.validate(async (valid) => {
+    if (!valid) return
+
+    try {
+      updating.value = true
+      // TODO: 调用后端API更新用户信息
+      // const response = await updateUserProfile(userForm)
+      
+      // 模拟更新成功
+      setTimeout(() => {
+        // 更新本地用户信息
+        userStore.user = {
+          ...userStore.user,
+          nickname: userForm.nickname,
+          avatarUrl: userForm.avatarUrl
+        }
+        userStore.setUserData(userStore.user)
+        
+        showEditUserDialog.value = false
+        ElMessage.success('个人信息更新成功')
+        updating.value = false
+      }, 500)
+    } catch (error) {
+      console.error('更新用户信息失败:', error)
+      ElMessage.error('更新用户信息失败，请稍后重试')
+      updating.value = false
+    }
+  })
+}
+
+// 取消收藏
+const removeFavorite = async (favoriteId) => {
+  try {
+    // TODO: 调用后端API取消收藏
+    // await removeFavoriteAPI(favoriteId)
+    
+    // 模拟删除成功
+    setTimeout(() => {
+      favoriteList.value = favoriteList.value.filter(item => item.id !== favoriteId)
+      userStats.favoriteCount--
+      ElMessage.success('已取消收藏')
+    }, 300)
+  } catch (error) {
+    console.error('取消收藏失败:', error)
+    ElMessage.error('取消收藏失败，请稍后重试')
+  }
+}
+
+// 历史记录分页切换
+const historyPageChange = (page) => {
+  loadHistory(page)
+}
+
+// 收藏分页切换
+const favoritePageChange = (page) => {
+  loadFavorites(page)
+}
+
+// 跳转到视频播放页
+const goToVideo = (videoId) => {
+  router.push({ name: 'video', params: { id: videoId } })
+}
+
+// 格式化日期
+const formatDate = (date) => {
+  if (!date) return '未知'
+  const d = new Date(date)
+  return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+}
+
+// 格式化时长
+const formatDuration = (seconds) => {
+  if (!seconds) return '00:00'
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
+}
+
+// 监听标签页切换
+const handleTabChange = (tab) => {
+  if (tab === 'history') {
+    loadHistory()
+  } else if (tab === 'favorites') {
+    loadFavorites()
+  } else if (tab === 'myVideos') {
+    loadMyVideos()
+  }
+}
+
+// 从URL参数中获取初始标签
+const initTabFromRoute = () => {
+  const tab = route.query.tab
+  if (tab && ['history', 'favorites', 'upload', 'myVideos'].includes(tab)) {
+    activeTab.value = tab
+    handleTabChange(tab)
+  } else {
+    // 默认加载历史记录
+    loadHistory()
+  }
+}
+
+// 处理封面图片上传
+const handleCoverChange = (file) => {
+  const isImage = file.raw.type.indexOf('image/') !== -1
+  const isLt2M = file.raw.size / 1024 / 1024 < 2
+
+  if (!isImage) {
+    ElMessage.error('封面图片只能是图片格式!')
+    return false
+  }
+  if (!isLt2M) {
+    ElMessage.error('封面图片大小不能超过 2MB!')
+    return false
+  }
+
+  // 显示预览
+  uploadForm.coverFile = file.raw
+  const reader = new FileReader()
+  reader.readAsDataURL(file.raw)
+  reader.onload = () => {
+    coverPreview.value = reader.result
+  }
+}
+
+// 处理视频文件上传
+const handleVideoChange = (file) => {
+  const isVideo = /\.(mp4|avi|mov|wmv|flv|mkv)$/i.test(file.name)
+  const isLt500M = file.raw.size / 1024 / 1024 < 500
+
+  if (!isVideo) {
+    ElMessage.error('请上传正确的视频格式!')
+    return false
+  }
+  if (!isLt500M) {
+    ElMessage.error('视频大小不能超过 500MB!')
+    return false
+  }
+
+  uploadForm.videoFile = file.raw
+}
+
+// 处理文件数量超出限制
+const handleExceed = () => {
+  ElMessage.warning('只能上传一个视频文件')
+}
+
+// 处理文件移除前的确认
+const handleBeforeRemove = () => {
+  return ElMessageBox.confirm('确定移除已选择的视频文件?')
+}
+
+// 显示标签输入框
+const showTagInput = () => {
+  tagInputVisible.value = true
+  nextTick(() => {
+    tagInputRef.value.focus()
+  })
+}
+
+// 添加标签
+const handleAddTag = () => {
+  const value = tagInput.value.trim()
+  if (value) {
+    if (uploadForm.tags.length >= 5) {
+      ElMessage.warning('最多添加5个标签')
+    } else if (uploadForm.tags.includes(value)) {
+      ElMessage.warning('标签已存在')
+    } else {
+      uploadForm.tags.push(value)
+    }
+  }
+  tagInputVisible.value = false
+  tagInput.value = ''
+}
+
+// 移除标签
+const handleRemoveTag = (tag) => {
+  uploadForm.tags = uploadForm.tags.filter(item => item !== tag)
+}
+
+// 上传视频
+const handleUpload = async () => {
+  if (!uploadForm.videoFile) {
+    ElMessage.error('请选择视频文件')
+    return
+  }
+
+  await uploadFormRef.value.validate(async (valid) => {
+    if (!valid) return
+
+    try {
+      uploading.value = true
+      // TODO: 实现实际的视频上传逻辑
+      // 1. 先上传封面图片和视频文件获取URL
+      // 2. 再提交表单数据
+      
+      // 模拟上传成功
+      setTimeout(() => {
+        ElMessage.success('视频发布成功')
+        resetUploadForm()
+        // 切换到我的视频标签页
+        activeTab.value = 'myVideos'
+        // 加载我的视频列表
+        loadMyVideos()
+        uploading.value = false
+      }, 1500)
+    } catch (error) {
+      console.error('视频上传失败:', error)
+      ElMessage.error('视频上传失败，请稍后重试')
+      uploading.value = false
+    }
+  })
+}
+
+// 重置上传表单
+const resetUploadForm = () => {
+  uploadFormRef.value && uploadFormRef.value.resetFields()
+  uploadForm.title = ''
+  uploadForm.description = ''
+  uploadForm.coverUrl = ''
+  uploadForm.videoFile = null
+  uploadForm.category = ''
+  uploadForm.tags = []
+  coverPreview.value = ''
+}
+
+// 加载我的视频列表
+const loadMyVideos = async (page = 1) => {
+  loading.value = true
+  try {
+    // TODO: 调用后端API获取我的视频列表
+    // const response = await getUserVideos(page)
+    // myVideoList.value = response.data
+    // myVideoTotal.value = response.total
+    
+    // 模拟数据
+    setTimeout(() => {
+      myVideoList.value = [
+        {
+          id: 1,
+          title: '我的示例视频1',
+          coverUrl: 'https://via.placeholder.com/300x200',
+          duration: 180,
+          views: 256,
+          likes: 24,
+          createTime: new Date()
+        },
+        {
+          id: 2,
+          title: '我的示例视频2',
+          coverUrl: 'https://via.placeholder.com/300x200',
+          duration: 360,
+          views: 128,
+          likes: 12,
+          createTime: new Date(Date.now() - 24 * 60 * 60 * 1000)
+        }
+      ]
+      myVideoTotal.value = 2
+      loading.value = false
+    }, 500)
+  } catch (error) {
+    console.error('获取我的视频列表失败:', error)
+    loading.value = false
+  }
+}
+
+// 编辑视频
+const editVideo = (video) => {
+  // TODO: 跳转到视频编辑页面或打开编辑对话框
+  ElMessage.info('编辑视频功能待实现')
+}
+
+// 删除视频
+const deleteVideo = (videoId) => {
+  ElMessageBox.confirm('确定要删除这个视频吗？此操作不可逆', '警告', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      // TODO: 调用后端API删除视频
+      // await deleteVideoAPI(videoId)
+      
+      // 模拟删除成功
+      setTimeout(() => {
+        myVideoList.value = myVideoList.value.filter(item => item.id !== videoId)
+        ElMessage.success('视频已删除')
+      }, 300)
+    } catch (error) {
+      console.error('删除视频失败:', error)
+      ElMessage.error('删除视频失败，请稍后重试')
+    }
+  }).catch(() => {})
+}
+
+// 我的视频分页切换
+const myVideoPageChange = (page) => {
+  loadMyVideos(page)
+}
+
+// 页面加载时初始化数据
+onMounted(() => {
+  if (userStore.isLoggedIn) {
+    loadUserStats()
+    initTabFromRoute()
+  }
+})
+</script>
+
+<style scoped>
+.profile-container {
+  padding: 20px;
+}
+
+.user-card {
+  text-align: center;
+  padding: 20px;
+}
+
+.user-avatar {
+  margin-bottom: 20px;
+}
+
+.user-info {
+  margin-bottom: 20px;
+}
+
+.user-info h2 {
+  margin-bottom: 10px;
+  font-size: 1.5rem;
+}
+
+.user-info p {
+  margin: 5px 0;
+  color: #666;
+}
+
+.user-stats {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 20px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #409eff;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.user-actions {
+  margin-top: 20px;
+}
+
+.profile-tabs {
+  margin-bottom: 20px;
+}
+
+.video-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.video-item {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.video-item:hover {
+  transform: translateY(-5px);
+}
+
+.video-thumb {
+  position: relative;
+  height: 180px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.video-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-duration {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 5px;
+  border-radius: 2px;
+  font-size: 0.8rem;
+}
+
+.video-title {
+  margin: 0 0 5px 0;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-uploader,
+.watch-time,
+.favorite-time {
+  margin: 5px 0;
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.loading-container {
+  padding: 20px;
+}
+
+.empty-data {
+  padding: 40px 0;
+  text-align: center;
+}
+
+.el-pagination {
+  margin-top: 20px;
+  text-align: center;
+}
+
+/* 上传视频样式 */
+.upload-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.cover-uploader {
+  width: 300px;
+  height: 169px;
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.cover-uploader:hover {
+  border-color: #409eff;
+}
+
+.cover-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 178px;
+  height: 178px;
+  line-height: 178px;
+  text-align: center;
+}
+
+.cover-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tag-item {
+  margin-right: 10px;
+  margin-bottom: 10px;
+}
+
+.tag-input {
+  width: 120px;
+  margin-right: 10px;
+  vertical-align: top;
+}
+
+.button-new-tag {
+  margin-bottom: 10px;
+}
+
+.video-stats {
+  font-size: 0.8rem;
+  color: #888;
+  margin: 5px 0;
+}
+
+.upload-time {
+  font-size: 0.8rem;
+  color: #999;
+  margin: 5px 0;
+}
+
+.video-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+</style> 

@@ -1,9 +1,9 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import {ElMessage} from 'element-plus'
 
 // 创建axios实例
 const request = axios.create({
-  baseURL: 'http://localhost:8080', // API的基础URL
+  baseURL: 'http://localhost:8080',
   timeout: 10000  // 请求超时时间
 })
 
@@ -26,8 +26,7 @@ request.interceptors.request.use(
 // 响应拦截器
 request.interceptors.response.use(
   response => {
-    const res = response.data
-    return res
+      return response.data
   },
   error => {
     console.error('响应错误:', error)
