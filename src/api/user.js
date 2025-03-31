@@ -7,7 +7,7 @@ import request from '../utils/request'
  */
 export function login(data) {
   return request({
-    url: '/api/user/login',
+    url: '/api/account/login',
     method: 'post',
     data
   })
@@ -20,9 +20,42 @@ export function login(data) {
  */
 export function register(data) {
   return request({
-    url: '/api/user/register',
+    url: '/api/account/register',
     method: 'post',
     data
+  })
+}
+
+/**
+ * 用户登出
+ * @returns {Promise} 响应结果
+ */
+export function logout() {
+  return request({
+    url: '/api/account/logout',
+    method: 'post'
+  })
+}
+
+/**
+ * 刷新令牌
+ * @returns {Promise} 响应结果，包含新的令牌
+ */
+export function refreshToken() {
+  return request({
+    url: '/api/account/refresh-token',
+    method: 'post'
+  })
+}
+
+/**
+ * 获取当前登录用户信息
+ * @returns {Promise} 响应结果
+ */
+export function getCurrentUser() {
+  return request({
+    url: '/api/user/current',
+    method: 'get'
   })
 }
 

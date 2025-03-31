@@ -1,9 +1,6 @@
 <template>
   <div class="home">
     <el-container>
-      <el-header>
-        <NavBar />
-      </el-header>
       <el-main>
         <el-row :gutter="20">
           <el-col :span="6" v-for="i in 8" :key="i">

@@ -37,7 +37,7 @@
             <el-button 
               type="primary" 
               @click="handleLogin" 
-              :loading="loading" 
+              :loading="userStore.loading" 
               class="submit-button"
               size="large"
             >
@@ -117,7 +117,7 @@
             <el-button 
               type="primary" 
               @click="handleRegister" 
-              :loading="loading" 
+              :loading="userStore.loading" 
               class="submit-button"
               size="large"
             >
@@ -127,23 +127,24 @@
         </el-form>
       </el-tab-pane>
     </el-tabs>
+    
   </div>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
 import { User, Lock, Message, Promotion, ChatDotRound, Position } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-import { login, register } from '../api/user'
-import { setUser, setToken } from '../utils/auth'
+import { useUserStore } from '../stores/user'
 
 const activeTab = ref('login')
-const loading = ref(false)
+const rememberMe = ref(false)
 const loginFormRef = ref(null)
 const registerFormRef = ref(null)
-const rememberMe = ref(false)
 
-// 发送登录成功事件
+// 获取用户状态管理
+const userStore = useUserStore()
+
+// 发送事件
 const emit = defineEmits(['login-success', 'register-success'])
 
 // 登录表单数据和验证规则
@@ -214,34 +215,11 @@ const handleLogin = async () => {
   try {
     await loginFormRef.value.validate(async (valid) => {
       if (valid) {
-        loading.value = true
-        try {
-          // 调用登录API
-          const response = await login(loginForm)
-          
-          if (response.success) {
-            ElMessage.success('登录成功')
-            
-            // 记住用户信息
-            if (rememberMe.value) {
-              setToken('mock-token') // 实际中应使用后端返回的token
-            }
-            
-            // 存储用户信息
-            setUser(response.user)
-            
-            // 通知父组件登录成功
-            emit('login-success', response.user)
-            
-            // 关闭登录弹窗（由父组件处理）
-          } else {
-            ElMessage.error(response.message || '登录失败')
-          }
-        } catch (error) {
-          console.error('登录失败:', error)
-          ElMessage.error('登录失败，请稍后重试')
-        } finally {
-          loading.value = false
+        const result = await userStore.login(loginForm)
+        
+        if (result.success) {
+          // 通知父组件登录成功
+          emit('login-success', result.user)
         }
       }
     })
@@ -257,43 +235,29 @@ const handleRegister = async () => {
   try {
     await registerFormRef.value.validate(async (valid) => {
       if (valid) {
-        loading.value = true
+        // 准备注册数据（移除确认密码字段）
+        const registerData = {
+          username: registerForm.username,
+          password: registerForm.password,
+          nickname: registerForm.nickname || registerForm.username, // 如果未提供昵称，使用用户名
+          email: registerForm.email,
+          avatarUrl: registerForm.avatarUrl
+        }
         
-        try {
-          // 准备注册数据（移除确认密码字段）
-          const registerData = {
-            username: registerForm.username,
-            password: registerForm.password,
-            nickname: registerForm.nickname || registerForm.username, // 如果未提供昵称，使用用户名
-            email: registerForm.email,
-            avatarUrl: registerForm.avatarUrl
-          }
+        const result = await userStore.register(registerData)
+        
+        if (result.success) {
+          // 清空表单
+          registerFormRef.value.resetFields()
           
-          // 调用注册API
-          const response = await register(registerData)
+          // 切换到登录选项卡
+          activeTab.value = 'login'
           
-          if (response.success) {
-            ElMessage.success('注册成功，请登录')
-            
-            // 清空表单
-            registerFormRef.value.resetFields()
-            
-            // 切换到登录选项卡
-            activeTab.value = 'login'
-            
-            // 预填登录表单
-            loginForm.username = registerData.username
-            
-            // 通知父组件注册成功
-            emit('register-success')
-          } else {
-            ElMessage.error(response.message || '注册失败')
-          }
-        } catch (error) {
-          console.error('注册失败:', error)
-          ElMessage.error('注册失败，请稍后重试')
-        } finally {
-          loading.value = false
+          // 预填登录表单
+          loginForm.username = registerData.username
+          
+          // 通知父组件注册成功
+          emit('register-success')
         }
       }
     })
