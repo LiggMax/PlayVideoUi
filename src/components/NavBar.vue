@@ -9,7 +9,7 @@
     >
       <el-menu-item index="/">
         <img src="../assets/logo.svg" class="logo" alt="Logo"/>
-        视频播放平台
+        未来视点
       </el-menu-item>
       <div class="flex-grow" />
       <el-menu-item index="/">首页</el-menu-item>

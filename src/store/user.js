@@ -53,6 +53,7 @@ export const useUserStore = defineStore('user', () => {
         
         // 设置axios默认请求头
         axios.defaults.headers.common['Authorization'] = tokenValue;
+        console.log('登录成功，已设置认证Token:', tokenValue.substring(0, 15) + '...');
         
         // 保存用户信息
         user.value = response.user;

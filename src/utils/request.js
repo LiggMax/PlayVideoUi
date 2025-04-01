@@ -18,6 +18,11 @@ request.interceptors.request.use(
       config.headers = config.headers || {}
       // 直接使用token，不添加Bearer前缀（后端会添加）
       config.headers['Authorization'] = token
+      
+      // 添加调试日志
+      console.log(`发送请求到 ${config.url} 时附加认证Token: ${token.substring(0, 15)}...`);
+    } else {
+      console.log(`发送请求到 ${config.url} 时未附加Token（用户未登录）`);
     }
     return config
   },
