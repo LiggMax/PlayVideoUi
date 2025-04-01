@@ -8,7 +8,7 @@
       :default-active="activeIndex"
     >
       <el-menu-item index="/">
-        <img src="../assets/logo.svg" class="logo" alt="Logo"/>
+        <img src="../assets/Logo.svg" class="logo" alt="Logo"/>
         未来视点
       </el-menu-item>
       <div class="flex-grow" />
