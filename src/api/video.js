@@ -59,7 +59,7 @@ export function saveVideo(data) {
  * @param {number} size - 每页数量
  * @returns {Promise} 响应结果
  */
-export function getMyVideos(page = 1, size = 10) {
+export function getMyVideos(page = 1, size = 8) {
   return request({
     url: '/api/user/video/list',
     method: 'get',
@@ -122,7 +122,7 @@ export function likeVideo(id) {
  * @param {number} size - 每页数量
  * @returns {Promise} 响应结果
  */
-export function getVideosByCategory(category, page = 1, size = 10) {
+export function getVideosByCategory(category, page = 1, size = 8) {
   return request({
     url: '/api/video/category',
     method: 'get',
@@ -136,7 +136,7 @@ export function getVideosByCategory(category, page = 1, size = 10) {
  * @param {number} size - 每页数量
  * @returns {Promise} 响应结果
  */
-export function getLatestVideos(page = 1, size = 10) {
+export function getLatestVideos(page = 1, size = 8) {
   return request({
     url: '/api/video/latest',
     method: 'get',
@@ -150,7 +150,7 @@ export function getLatestVideos(page = 1, size = 10) {
  * @param {number} size - 每页数量
  * @returns {Promise} 响应结果
  */
-export function getPopularVideos(page = 1, size = 10) {
+export function getPopularVideos(page = 1, size = 8) {
   return request({
     url: '/api/video/popular',
     method: 'get',
@@ -165,7 +165,7 @@ export function getPopularVideos(page = 1, size = 10) {
  * @param {number} size - 每页数量
  * @returns {Promise} 响应结果
  */
-export function searchVideos(keyword, page = 1, size = 10) {
+export function searchVideos(keyword, page = 1, size = 8) {
   return request({
     url: '/api/video/search',
     method: 'get',
