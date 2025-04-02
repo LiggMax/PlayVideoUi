@@ -143,7 +143,7 @@
               </el-button>
               <el-button type="text" @click="showComments(dynamic.id)">
                 <el-icon><ChatDotRound /></el-icon>
-                评论 ({{ dynamic.commentCount || 0 }})
+                评论
               </el-button>
               <el-button type="text" @click="shareDynamic(dynamic.id)">
                 <el-icon><Share /></el-icon>
@@ -160,11 +160,23 @@
                   placeholder="发表评论..."
                   size="small"
                   @keyup.enter="submitComment(dynamic.id)"
+                  :disabled="dynamic.commentSubmitting"
                 />
-                <el-button size="small" type="primary" @click="submitComment(dynamic.id)">发送</el-button>
+                <el-button 
+                  size="small" 
+                  type="primary" 
+                  @click="submitComment(dynamic.id)"
+                  :loading="dynamic.commentSubmitting"
+                >发送</el-button>
               </div>
               
-              <div v-if="dynamic.comments && dynamic.comments.length > 0" class="comments-list">
+              <!-- 评论加载中 -->
+              <div v-if="dynamic.commentsLoading" class="comments-loading">
+                <el-skeleton :rows="3" animated />
+              </div>
+              
+              <!-- 有评论时显示评论列表 -->
+              <div v-else-if="dynamic.comments && dynamic.comments.length > 0" class="comments-list">
                 <div v-for="comment in dynamic.comments" :key="comment.id" class="comment-item">
                   <el-avatar :size="32" :src="comment.userAvatar" class="comment-avatar" />
                   <div class="comment-content">
@@ -173,10 +185,26 @@
                       <span class="comment-time">{{ formatDynamicDate(comment.createTime) }}</span>
                     </div>
                     <p class="comment-text">{{ comment.content }}</p>
+                    
+                    <!-- 回复列表 -->
+                    <div v-if="comment.replies && comment.replies.length > 0" class="replies-list">
+                      <div v-for="reply in comment.replies" :key="reply.id" class="reply-item">
+                        <el-avatar :size="24" :src="reply.userAvatar" class="reply-avatar" />
+                        <div class="reply-content">
+                          <div class="reply-info">
+                            <span class="reply-username">{{ reply.username }}</span>
+                            <span class="reply-time">{{ formatDynamicDate(reply.createTime) }}</span>
+                          </div>
+                          <p class="reply-text">{{ reply.content }}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div v-else class="no-comments">
+              
+              <!-- 没有评论时显示提示 -->
+              <div v-else-if="!dynamic.commentsLoading && dynamic.comments && dynamic.comments.length === 0" class="no-comments">
                 暂无评论，快来发表第一条评论吧
               </div>
             </div>
@@ -319,10 +347,22 @@ const loadDynamics = async (page = 1, replace = true) => {
     
     if (response.success) {
       const data = response.data
+      
+      // 确保动态列表项有评论相关的初始状态
+      const processedDynamics = (data.dynamics || []).map(dynamic => {
+        return {
+          ...dynamic,
+          showComments: false,
+          comments: [],
+          commentsLoading: false,
+          commentSubmitting: false
+        }
+      })
+      
       if (replace) {
-        dynamicList.value = data.dynamics || []
+        dynamicList.value = processedDynamics
       } else {
-        dynamicList.value = [...dynamicList.value, ...(data.dynamics || [])]
+        dynamicList.value = [...dynamicList.value, ...processedDynamics]
       }
       
       currentPage.value = page
@@ -380,18 +420,38 @@ const showComments = async (dynamicId) => {
   if (dynamic) {
     dynamic.showComments = !dynamic.showComments
     
-    // 如果打开评论且尚未加载评论
-    if (dynamic.showComments && (!dynamic.comments || dynamic.comments.length === 0)) {
+    // 如果打开评论，总是重新加载评论
+    if (dynamic.showComments) {
       try {
+        console.log('正在获取动态评论, dynamicId:', dynamicId)
+        
+        // 设置加载状态
+        dynamic.commentsLoading = true
+        dynamic.comments = []
+        
         const response = await getDynamicComments(dynamicId, 1, 10)
+        console.log('获取评论响应:', response)
         
         if (response.success) {
-          dynamic.comments = response.data.comments || []
+          // 检查返回的数据结构
+          if (response.data && response.data.comments) {
+            dynamic.comments = response.data.comments
+            console.log('成功加载评论:', dynamic.comments.length, '条')
+          } else {
+            console.error('评论数据结构异常:', response.data)
+            dynamic.comments = []
+            ElMessage.warning('评论数据结构异常')
+          }
         } else {
+          console.error('获取评论失败:', response.message)
           ElMessage.error(response.message || '获取评论失败')
         }
       } catch (error) {
+        console.error('获取评论异常:', error)
         ElMessage.error('获取评论失败，请稍后重试')
+      } finally {
+        // 清除加载状态
+        dynamic.commentsLoading = false
       }
     }
   }
@@ -411,26 +471,42 @@ const submitComment = async (dynamicId) => {
   }
   
   try {
+    const dynamic = dynamicList.value.find(d => d.id === dynamicId)
+    if (!dynamic) return
+    
+    // 设置提交中状态
+    dynamic.commentSubmitting = true
+    
     const response = await commentDynamic(dynamicId, content.trim())
     
     if (response.success) {
-      const dynamic = dynamicList.value.find(d => d.id === dynamicId)
-      if (dynamic) {
-        if (!dynamic.comments) {
-          dynamic.comments = []
-        }
-        
-        dynamic.comments.unshift(response.data)
-        dynamic.commentCount = (dynamic.commentCount || 0) + 1
-        
-        // 清空输入框
-        commentMap[dynamicId] = ''
+      // 清空输入框
+      commentMap[dynamicId] = ''
+      
+      // 更新评论列表
+      if (!dynamic.comments) {
+        dynamic.comments = []
       }
+      
+      // 将新评论添加到列表最前面
+      dynamic.comments.unshift(response.data)
+      
+      // 更新评论计数
+      dynamic.commentCount = (dynamic.commentCount || 0) + 1
+      
+      ElMessage.success('评论成功')
     } else {
       ElMessage.error(response.message || '评论失败')
     }
   } catch (error) {
+    console.error('评论失败:', error)
     ElMessage.error('评论失败，请稍后重试')
+  } finally {
+    // 清除提交状态
+    const dynamic = dynamicList.value.find(d => d.id === dynamicId)
+    if (dynamic) {
+      dynamic.commentSubmitting = false
+    }
   }
 }
 
@@ -769,6 +845,47 @@ onMounted(() => {
   font-size: 14px;
 }
 
+.replies-list {
+  margin-top: 8px;
+  padding-left: 16px;
+  border-left: 2px solid #f0f0f0;
+}
+
+.reply-item {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.reply-avatar {
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.reply-content {
+  flex: 1;
+}
+
+.reply-info {
+  margin-bottom: 3px;
+}
+
+.reply-username {
+  font-weight: 600;
+  font-size: 13px;
+  margin-right: 5px;
+}
+
+.reply-time {
+  font-size: 11px;
+  color: #909399;
+}
+
+.reply-text {
+  margin: 0;
+  line-height: 1.4;
+  font-size: 13px;
+}
+
 .no-comments {
   text-align: center;
   color: #909399;
@@ -791,5 +908,9 @@ onMounted(() => {
 
 .el-empty {
   padding: 20px 0;
+}
+
+.comments-loading {
+  padding: 15px 0;
 }
 </style> 
