@@ -309,7 +309,27 @@ const loadVideoDetail = async () => {
     const response = await getVideoDetail(videoId)
     
     if (response.success && response.data) {
-      video.value = response.data
+      // 适配新的数据结构
+      const { video: videoData, userInfo } = response.data
+      video.value = {
+        id: videoData.id,
+        title: videoData.title,
+        description: videoData.description,
+        videoUrl: videoData.videoUrl,
+        coverUrl: videoData.coverUrl,
+        views: videoData.views,
+        likes: videoData.likes,
+        createTime: videoData.createTime,
+        uploaderName: videoData.uploaderName,
+        userId: videoData.userId,
+        category: videoData.category,
+        tags: videoData.tags,
+        tagList: videoData.tagList || []
+      }
+      
+      // 设置上传者信息
+      uploaderAvatar.value = userInfo.avatarUrl || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+      
       // 加载相关视频（同类别的视频）
       await loadRelatedVideos()
       // 加载上传者信息

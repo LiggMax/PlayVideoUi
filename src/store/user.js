@@ -5,9 +5,6 @@ import {
   login as loginApi,
   register as registerApi,
   logout as logoutApi,
-  refreshToken as refreshTokenApi,
-  getCurrentUser as getCurrentUserApi,
-  updateUserInfo
 } from "../api/user";
 import {ElMessage} from "element-plus";
 

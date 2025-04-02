@@ -13,21 +13,21 @@
       </el-menu-item>
       <div class="flex-grow" />
       <el-menu-item index="/">首页</el-menu-item>
-      <el-menu-item index="/category">分类</el-menu-item>
+      <el-menu-item index="/dynamic">动态</el-menu-item>
       <el-menu-item index="/favorites">收藏</el-menu-item>
-      
+
       <!-- 未登录状态 -->
       <div v-if="!userStore.isLoggedIn" class="user-auth-wrapper">
-        <el-button 
-          text 
-          class="login-btn" 
+        <el-button
+          text
+          class="login-btn"
           @click="openLoginDialog"
         >
           <el-icon><Avatar /></el-icon>
           <span class="login-text">登录/注册</span>
         </el-button>
       </div>
-      
+
       <!-- 已登录状态 -->
       <el-dropdown v-else trigger="click" @command="handleCommand" class="user-dropdown">
         <div class="user-avatar-container">

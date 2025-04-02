@@ -546,7 +546,6 @@ const loadMyVideos = async (page = 1) => {
     
     loading.value = false
   } catch (error) {
-    console.error('获取我的视频列表失败:', error)
     ElMessage.error('获取视频列表失败，请稍后重试')
     loading.value = false
     myVideoList.value = []
