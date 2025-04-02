@@ -7,10 +7,10 @@
       router
       :default-active="activeIndex"
     >
-      <el-menu-item index="/">
+      <div class="logo-container" @click="goToHome">
         <img src="../assets/Logo.svg" class="logo" alt="Logo"/>
         未来视点
-      </el-menu-item>
+      </div>
       <div class="flex-grow" />
       <el-menu-item index="/">首页</el-menu-item>
       <el-menu-item index="/dynamic">动态</el-menu-item>
@@ -102,6 +102,11 @@ const activeIndex = computed(() => {
   return route.path
 })
 
+// 点击Logo跳转到首页
+const goToHome = () => {
+  router.push('/')
+}
+
 // 打开登录对话框
 const openLoginDialog = () => {
   loginDialogVisible.value = true
@@ -163,6 +168,17 @@ const handleLogout = () => {
 .nav-menu {
   width: 100%;
   padding: 0 20px;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  height: 60px;
+  padding: 0 20px;
+  cursor: pointer;
+  color: #606266;
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .logo {

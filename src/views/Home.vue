@@ -2,60 +2,84 @@
   <div class="home">
     <el-container>
       <el-main>
-        <div class="video-tabs">
-          <el-tabs v-model="activeTab" @tab-click="handleTabClick">
-            <el-tab-pane label="最新视频" name="latest"></el-tab-pane>
-            <el-tab-pane label="热门视频" name="popular"></el-tab-pane>
-            <el-tab-pane label="分类视频" name="category">
-              <div class="category-select">
-                <el-select v-model="selectedCategory" placeholder="选择视频分类" @change="handleCategoryChange">
-                  <el-option
-                    v-for="item in categories"
-                    :key="item.value"
-                    :label="item.label"
-                    :value="item.value">
-                  </el-option>
-                </el-select>
-              </div>
-            </el-tab-pane>
-          </el-tabs>
-        </div>
+        <h2 class="page-title">最新视频</h2>
         
         <el-row :gutter="20">
-          <el-col :span="6" v-for="video in videos" :key="video.id">
-            <el-card class="video-card" shadow="hover" @click="goToVideo(video.id)">
-              <div class="video-thumbnail">
-                <el-image
-                  :src="video.coverUrl || 'https://via.placeholder.com/320x180'"
-                  fit="cover"
-                />
+          <!-- 左侧最新视频区域 -->
+          <el-col :span="18">
+            <el-row :gutter="20">
+              <el-col :span="8" v-for="video in latestVideos" :key="video.id">
+                <el-card class="video-card" shadow="hover" @click="goToVideo(video.id)">
+                  <div class="video-thumbnail">
+                    <el-image
+                      :src="video.coverUrl || 'https://via.placeholder.com/320x180'"
+                      fit="cover"
+                    />
+                  </div>
+                  <div class="video-info">
+                    <h3>{{ video.title }}</h3>
+                    <p class="uploader">{{ video.uploaderName }}</p>
+                    <p class="video-stats">
+                      <span>{{ formatNumber(video.views) }} 播放</span>
+                      <span class="dot">·</span>
+                      <span>{{ formatNumber(video.likes) }} 赞</span>
+                    </p>
+                  </div>
+                </el-card>
+              </el-col>
+            </el-row>
+            
+            <div class="pagination-container" v-if="latestTotal > 0">
+              <el-pagination
+                @current-change="handleLatestPageChange"
+                :current-page="latestPage"
+                :page-size="pageSize"
+                layout="prev, pager, next"
+                :total="latestTotal">
+              </el-pagination>
+            </div>
+            
+            <div class="no-data" v-if="latestVideos.length === 0">
+              <el-empty description="暂无视频数据"></el-empty>
+            </div>
+          </el-col>
+          
+          <!-- 右侧热门排行榜 -->
+          <el-col :span="6">
+            <div class="popular-videos-container">
+              <h3 class="popular-title">
+                <el-icon><Trophy /></el-icon> 热门排行
+              </h3>
+              <div class="popular-list">
+                <div 
+                  v-for="(video, index) in popularVideos" 
+                  :key="video.id" 
+                  class="popular-item"
+                  @click="goToVideo(video.id)"
+                >
+                  <div class="popular-rank" 
+                    :class="{
+                      'rank-1': index === 0,
+                      'rank-2': index === 1,
+                      'rank-3': index === 2,
+                      'top-three': index < 3
+                    }"
+                  >{{ index + 1 }}</div>
+                  <div class="popular-thumbnail">
+                    <el-image
+                      :src="video.coverUrl || 'https://via.placeholder.com/120x67'"
+                      fit="cover"
+                    />
+                  </div>
+                  <div class="popular-info">
+                    <h4 class="popular-title">{{ video.title }}</h4>
+                    <p class="popular-stats">{{ formatNumber(video.views) }} 播放</p>
+                  </div>
+                </div>
               </div>
-              <div class="video-info">
-                <h3>{{ video.title }}</h3>
-                <p class="uploader">{{ video.uploaderName }}</p>
-                <p class="video-stats">
-                  <span>{{ formatNumber(video.views) }} 播放</span>
-                  <span class="dot">·</span>
-                  <span>{{ formatNumber(video.likes) }} 赞</span>
-                </p>
-              </div>
-            </el-card>
+            </div>
           </el-col>
         </el-row>
-        
-        <div class="pagination-container" v-if="total > 0">
-          <el-pagination
-            @current-change="handleCurrentChange"
-            :current-page="currentPage"
-            :page-size="pageSize"
-            layout="prev, pager, next"
-            :total="total">
-          </el-pagination>
-        </div>
-        
-        <div class="no-data" v-if="videos.length === 0">
-          <el-empty description="暂无视频数据"></el-empty>
-        </div>
       </el-main>
     </el-container>
   </div>
@@ -65,76 +89,53 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getLatestVideos, getPopularVideos, getVideosByCategory } from '../api/video'
+import { Trophy } from '@element-plus/icons-vue'
+import { getLatestVideos, getPopularVideos } from '../api/video'
 
 const router = useRouter()
-const videos = ref([])
-const total = ref(0)
-const currentPage = ref(1)
-const pageSize = ref(8)
-const activeTab = ref('latest')
-const selectedCategory = ref('')
-const categories = ref([
-  { value: '风景', label: '风景' },
-  { value: '教育', label: '教育' },
-  { value: '美食', label: '美食' },
-  { value: '游戏', label: '游戏' },
-  { value: '音乐', label: '音乐' },
-  { value: '科技', label: '科技' }
-])
+const latestVideos = ref([])
+const popularVideos = ref([])
+const latestTotal = ref(0)
+const latestPage = ref(1)
+const pageSize = ref(9)
 
-// 加载视频数据
-const loadVideos = async (page = 1) => {
+// 加载最新视频数据
+const loadLatestVideos = async (page = 1) => {
   try {
-    let response
-    currentPage.value = page
-    
-    switch (activeTab.value) {
-      case 'latest':
-        response = await getLatestVideos(page, pageSize.value)
-        break
-      case 'popular':
-        response = await getPopularVideos(page, pageSize.value)
-        break
-      case 'category':
-        if (!selectedCategory.value) {
-          selectedCategory.value = categories.value[0].value
-        }
-        response = await getVideosByCategory(selectedCategory.value, page, pageSize.value)
-        break
-      default:
-        response = await getLatestVideos(page, pageSize.value)
-    }
+    latestPage.value = page
+    const response = await getLatestVideos(page, pageSize.value)
     
     if (response.success) {
-      videos.value = response.data.videos
-      total.value = response.data.total
+      latestVideos.value = response.data.videos
+      latestTotal.value = response.data.total
     } else {
-      ElMessage.error(response.message || '获取视频列表失败')
+      ElMessage.error(response.message || '获取最新视频列表失败')
     }
   } catch (error) {
-    console.error('加载视频失败:', error)
-    ElMessage.error('获取视频列表失败，请稍后重试')
+    console.error('加载最新视频失败:', error)
+    ElMessage.error('获取最新视频列表失败，请稍后重试')
   }
 }
 
-// 处理分页变化
-const handleCurrentChange = (page) => {
-  loadVideos(page)
-}
-
-// 处理标签切换
-const handleTabClick = () => {
-  currentPage.value = 1
-  loadVideos(1)
-}
-
-// 处理分类变化
-const handleCategoryChange = () => {
-  if (activeTab.value === 'category') {
-    currentPage.value = 1
-    loadVideos(1)
+// 加载热门视频数据
+const loadPopularVideos = async () => {
+  try {
+    const response = await getPopularVideos(1, 10)
+    
+    if (response.success) {
+      popularVideos.value = response.data.videos
+    } else {
+      ElMessage.error(response.message || '获取热门视频列表失败')
+    }
+  } catch (error) {
+    console.error('加载热门视频失败:', error)
+    ElMessage.error('获取热门视频列表失败，请稍后重试')
   }
+}
+
+// 处理最新视频分页变化
+const handleLatestPageChange = (page) => {
+  loadLatestVideos(page)
 }
 
 // 跳转到视频详情页
@@ -154,7 +155,8 @@ const formatNumber = (num) => {
 
 // 组件挂载时加载视频
 onMounted(() => {
-  loadVideos()
+  loadLatestVideos()
+  loadPopularVideos()
 })
 </script>
 
@@ -163,30 +165,10 @@ onMounted(() => {
   min-height: 100vh;
 }
 
-.video-tabs {
+.page-title {
   margin-bottom: 20px;
-}
-
-.category-select {
-  margin-top: 10px;
-}
-
-.el-header {
-  padding: 0;
-}
-
-.nav-menu {
-  width: 100%;
-  padding: 0 20px;
-}
-
-.logo {
-  height: 30px;
-  margin-right: 10px;
-}
-
-.flex-grow {
-  flex-grow: 1;
+  font-size: 22px;
+  font-weight: 600;
 }
 
 .video-card {
@@ -201,8 +183,18 @@ onMounted(() => {
 
 .video-thumbnail {
   width: 100%;
-  height: 180px;
+  height: 0;
+  padding-bottom: 56.25%;  /* 16:9 宽高比 */
+  position: relative;
   overflow: hidden;
+}
+
+.video-thumbnail .el-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .video-info {
@@ -215,7 +207,10 @@ onMounted(() => {
   line-height: 1.5;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  height: 48px;
 }
 
 .uploader {
@@ -234,10 +229,6 @@ onMounted(() => {
   margin: 0 5px;
 }
 
-.el-main {
-  padding: 20px;
-}
-
 .pagination-container {
   display: flex;
   justify-content: center;
@@ -247,5 +238,142 @@ onMounted(() => {
 .no-data {
   margin-top: 50px;
   text-align: center;
+}
+
+/* 热门排行区域样式 */
+.popular-videos-container {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 16px;
+  height: 100%;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f0f0f0;
+}
+
+.popular-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  color: #333;
+  border-bottom: 1px solid #f5f5f5;
+  padding-bottom: 12px;
+}
+
+.popular-title .el-icon {
+  margin-right: 8px;
+  color: #ff9900;
+  font-size: 22px;
+}
+
+.popular-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.popular-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 8px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.popular-item:last-child {
+  border-bottom: none;
+}
+
+.popular-item:hover {
+  background-color: #f0f0f0;
+  transform: translateX(5px);
+}
+
+.popular-rank {
+  min-width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0;
+  color: #606266;
+  font-weight: bold;
+  border-radius: 4px;
+  margin-right: 12px;
+  font-size: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.popular-rank.top-three {
+  color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  font-size: 15px;
+}
+
+.popular-rank.rank-1 {
+  background: linear-gradient(135deg, #ffcc00, #ff6600);
+  box-shadow: 0 2px 6px rgba(255,102,0,0.3);
+}
+
+.popular-rank.rank-2 {
+  background: linear-gradient(135deg, #b4b9c8, #8892a8);
+  box-shadow: 0 2px 6px rgba(136,146,168,0.3);
+}
+
+.popular-rank.rank-3 {
+  background: linear-gradient(135deg, #d8a374, #a97142);
+  box-shadow: 0 2px 6px rgba(169,113,66,0.3);
+}
+
+.popular-thumbnail {
+  width: 80px;
+  height: 45px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-right: 12px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.popular-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.popular-info h4 {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  color: #333;
+  transition: color 0.2s;
+}
+
+.popular-item:hover .popular-info h4 {
+  color: #409EFF;
+}
+
+.popular-stats {
+  font-size: 12px;
+  color: #999;
+  margin: 5px 0 0;
+  display: flex;
+  align-items: center;
+}
+
+.popular-stats:before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  background-color: #ddd;
+  border-radius: 50%;
+  margin-right: 5px;
 }
 </style>
