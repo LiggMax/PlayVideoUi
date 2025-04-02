@@ -53,10 +53,6 @@
                       <el-icon><Picture /></el-icon>
                       图片
                     </el-button>
-                    <el-button type="text" @click="addVideoLink">
-                      <el-icon><VideoCamera /></el-icon>
-                      视频
-                    </el-button>
                   </div>
                 </div>
               </el-form-item>
@@ -128,10 +124,6 @@
                     fit="cover"
                     class="video-thumbnail"
                   />
-                  <div class="video-info">
-                    <h3>{{ dynamic.videoTitle }}</h3>
-                    <p>点击观看视频</p>
-                  </div>
                 </div>
               </div>
             </div>
@@ -271,11 +263,6 @@ const toggleImageUpload = () => {
   showImageUpload.value = !showImageUpload.value
 }
 
-// 添加视频链接
-const addVideoLink = () => {
-  // 弹出选择视频的对话框，暂不实现
-  ElMessage.info('此功能正在开发中，敬请期待')
-}
 
 // 处理图片上传成功
 const handleUploadSuccess = (response, file, fileList) => {
