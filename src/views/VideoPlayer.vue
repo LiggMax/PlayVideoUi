@@ -521,22 +521,17 @@ const handleSubscribe = async () => {
         isSubscribed.value = false;
         uploaderSubscribers.value = Math.max(0, uploaderSubscribers.value - 1);
         ElMessage.success(`已取消关注 ${video.value.uploaderName}`);
-        console.log('取消关注成功，当前状态设置为未关注');
       } else {
         ElMessage.error(response.message || '取消关注失败');
-        console.error('取消关注失败:', response.message);
       }
     } else {
       // 添加关注
-      console.log('开始关注用户:', video.value.userId);
       const response = await subscribeUser(video.value.userId);
-      console.log('关注响应:', response);
-      
+
       if (response.success) {
         isSubscribed.value = true;
         uploaderSubscribers.value++;
         ElMessage.success(`已成功关注 ${video.value.uploaderName}`);
-        console.log('关注成功，当前状态设置为已关注');
       } else {
         ElMessage.error(response.message || '关注失败');
         console.error('关注失败:', response.message);
@@ -550,7 +545,6 @@ const handleSubscribe = async () => {
         const checkResponse = await checkIsSubscribed(video.value.userId);
         if (checkResponse.success) {
           isSubscribed.value = checkResponse.data;
-          console.log('重新检查后的订阅状态:', isSubscribed.value ? '已订阅' : '未订阅');
         }
       } catch (checkError) {
         console.error('重新检查订阅状态失败:', checkError);
@@ -558,7 +552,6 @@ const handleSubscribe = async () => {
     }, 500);
     
   } catch (error) {
-    console.error('关注操作失败:', error);
     ElMessage.error('操作失败，请稍后重试');
   }
 }

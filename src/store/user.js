@@ -1,11 +1,11 @@
 import {defineStore} from "pinia";
 import {ref, computed} from "vue";
 import axios from "axios";
-import { 
-  login as loginApi, 
-  register as registerApi, 
-  logout as logoutApi, 
-  refreshToken as refreshTokenApi, 
+import {
+  login as loginApi,
+  register as registerApi,
+  logout as logoutApi,
+  refreshToken as refreshTokenApi,
   getCurrentUser as getCurrentUserApi,
   updateUserInfo
 } from "../api/user";
@@ -44,21 +44,21 @@ export const useUserStore = defineStore('user', () => {
     try {
       loading.value = true;
       const response = await loginApi(loginData);
-      
+
       if (response.success) {
         // 保存token
         const tokenValue = response.token;
         token.value = tokenValue;
         localStorage.setItem('token', tokenValue);
-        
+
         // 设置axios默认请求头
         axios.defaults.headers.common['Authorization'] = tokenValue;
         console.log('登录成功，已设置认证Token:', tokenValue.substring(0, 15) + '...');
-        
+
         // 保存用户信息
         user.value = response.user;
         localStorage.setItem('user', JSON.stringify(response.user));
-        
+
         ElMessage.success(`欢迎回来，${response.user.nickname || response.user.username}！`);
         return {success: true, user: response.user};
       } else {
@@ -79,7 +79,7 @@ export const useUserStore = defineStore('user', () => {
     try {
       loading.value = true;
       const response = await registerApi(registerData);
-      
+
       if (response.success) {
         ElMessage.success('注册成功，请登录');
         return {success: true};
@@ -100,33 +100,33 @@ export const useUserStore = defineStore('user', () => {
   async function logout() {
     try {
       loading.value = true;
-      
+
       // 调用后端登出接口
       if (token.value) {
         await logoutApi();
       }
-      
+
       // 清除本地存储和状态
       user.value = null;
       token.value = '';
       localStorage.removeItem('user');
       localStorage.removeItem('token');
-      
+
       // 清除axios默认请求头
       delete axios.defaults.headers.common['Authorization'];
-      
+
       ElMessage.success('已退出登录');
       return {success: true, message: '登出成功'};
     } catch (error) {
       console.error('登出失败:', error);
-      
+
       // 即使请求失败，也应清除本地状态
       user.value = null;
       token.value = '';
       localStorage.removeItem('user');
       localStorage.removeItem('token');
       delete axios.defaults.headers.common['Authorization'];
-      
+
       ElMessage.error(error.response?.data?.message || '登出失败，请稍后重试');
       return {success: false, message: error.response?.data?.message || '登出失败，请稍后重试'};
     } finally {

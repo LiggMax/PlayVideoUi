@@ -5,12 +5,12 @@
       <el-col :span="6">
         <el-card class="user-card">
           <div class="user-avatar">
-            <el-avatar :size="100" :src="userStore.avatar" />
+            <el-avatar :size="100" :src="userInfo.avatarUrl" />
           </div>
           <div class="user-info">
-            <h2>{{ userStore.nickname }}</h2>
-            <p>用户名: {{ userStore.username }}</p>
-            <p>注册时间: {{ formatDate(userStore.user?.createTime) }}</p>
+            <h2>{{ userInfo.nickname }}</h2>
+            <p>用户名: {{ userInfo.username }}</p>
+            <p>注册时间: {{ formatDate(userInfo.createTime) }}</p>
           </div>
           <div class="user-stats">
             <div class="stat-item">
@@ -221,11 +221,17 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../store/user'
 import { Plus, VideoCamera } from '@element-plus/icons-vue'
 import { uploadVideo, uploadCover, saveVideo, getMyVideos, deleteVideo as deleteVideoApi } from '../api/video'
+import {getCurrentUser} from "@/api/user.js";
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
+const userInfo = ref({
+  nickname: '',
+  username: '',
+  avatarUrl: ''
+})
 // 如果用户未登录，重定向到首页
 if (!userStore.isLoggedIn) {
   ElMessage.warning('请先登录')
@@ -302,6 +308,13 @@ const loadUserStats = async () => {
   }
 }
 
+//获取用户信息
+
+const getUserInfo = async () => {
+    const response = await getCurrentUser()
+      userInfo.value = response.user
+}
+getUserInfo()
 // 更新用户信息
 const updateUserInfo = async () => {
   await userFormRef.value.validate(async (valid) => {
