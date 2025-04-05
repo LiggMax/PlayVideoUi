@@ -1,5 +1,7 @@
 import axios from 'axios'
 import {ElMessage} from 'element-plus'
+import {useUserStore} from "@/store/user.js";
+import router from "@/router/index.js";
 
 // 创建axios实例
 const request = axios.create({
@@ -42,6 +44,11 @@ request.interceptors.response.use(
     let message = error.message
     if (error.response && error.response.data) {
       message = error.response.data.message || message
+    } else if (error.response.status === 401) {
+        const userStore = useUserStore()
+        userStore.logout()
+        router.push('/login')
+        ElMessage.error('登录状态已过期，请重新登录')
     }
     ElMessage.error(message || '请求失败')
     return Promise.reject(error)

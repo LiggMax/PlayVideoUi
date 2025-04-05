@@ -20,24 +20,24 @@
         </div>
         
         <div v-else>
-          <div class="video-container">
-            <video
+        <div class="video-container">
+          <video
               ref="videoPlayer"
-              controls
-              class="video-player"
+            controls
+            class="video-player"
               :src="video.videoUrl"
               :poster="video.coverUrl || 'https://via.placeholder.com/1280x720'"
               @play="handleVideoPlay"
-            ></video>
-          </div>
+          ></video>
+        </div>
 
-          <div class="video-details">
+        <div class="video-details">
             <h1>{{ video.title }}</h1>
-            <p class="video-stats">
+          <p class="video-stats">
               <span>{{ formatNumber(video.views) }} 次观看</span>
               <span>{{ formatDate(video.createTime) }}</span>
-            </p>
-            <el-divider />
+          </p>
+          <el-divider />
             
             <div class="author-info">
               <div class="author-avatar-container">
@@ -187,8 +187,8 @@
                     </div>
                   </div>
                 </div>
-              </div>
-              
+        </div>
+
               <div class="pagination" v-if="totalComments > 10">
                 <el-pagination
                   layout="prev, pager, next"
@@ -207,17 +207,17 @@
           </div>
 
           <div class="related-videos" v-if="relatedVideos.length > 0">
-            <h2>相关视频</h2>
-            <el-row :gutter="20">
+          <h2>相关视频</h2>
+          <el-row :gutter="20">
               <el-col :span="6" v-for="relatedVideo in relatedVideos" :key="relatedVideo.id">
                 <el-card class="video-card" shadow="hover" @click="goToVideo(relatedVideo.id)">
-                  <div class="video-thumbnail">
-                    <el-image
+                <div class="video-thumbnail">
+                  <el-image
                       :src="relatedVideo.coverUrl || 'https://via.placeholder.com/320x180'"
-                      fit="cover"
-                    />
-                  </div>
-                  <div class="video-info">
+                    fit="cover"
+                  />
+                </div>
+                <div class="video-info">
                     <h3>{{ relatedVideo.title }}</h3>
                     <p>{{ relatedVideo.uploaderName }}</p>
                     <p class="video-stats">
@@ -225,10 +225,10 @@
                       <span class="dot">·</span>
                       <span>{{ formatNumber(relatedVideo.likes) }} 赞</span>
                     </p>
-                  </div>
-                </el-card>
-              </el-col>
-            </el-row>
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
           </div>
         </div>
       </el-main>
@@ -302,7 +302,7 @@ const loadVideoDetail = async () => {
     
     if (!videoId) {
       ElMessage.error('视频ID无效')
-      router.push('/')
+  router.push('/')
       return
     }
     

@@ -31,7 +31,6 @@
           </el-form-item>
           <div class="remember-forgot">
             <el-checkbox v-model="rememberMe">记住我</el-checkbox>
-            <a href="#" class="forgot-link">忘记密码?</a>
           </div>
           <el-form-item>
             <el-button 

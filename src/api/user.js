@@ -77,7 +77,7 @@ export function getUserInfo(id) {
  * @param {Object} data - 更新的用户数据
  * @returns {Promise} 响应结果
  */
-export function updateUserInfo(id, data) {
+export function updateUserInfoService(id, data) {
   return request({
     url: `/api/user/${id}`,
     method: 'put',

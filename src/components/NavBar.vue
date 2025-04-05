@@ -14,7 +14,6 @@
       <div class="flex-grow" />
       <el-menu-item index="/">首页</el-menu-item>
       <el-menu-item index="/dynamic">动态</el-menu-item>
-      <el-menu-item index="/favorites">收藏</el-menu-item>
 
       <!-- 未登录状态 -->
       <div v-if="!userStore.isLoggedIn" class="user-auth-wrapper">
@@ -42,12 +41,6 @@
             </el-dropdown-item>
             <el-dropdown-item command="upload">
               <el-icon><VideoCamera /></el-icon>上传视频
-            </el-dropdown-item>
-            <el-dropdown-item command="favorites">
-              <el-icon><Star /></el-icon>我的收藏
-            </el-dropdown-item>
-            <el-dropdown-item command="history">
-              <el-icon><Clock /></el-icon>历史记录
             </el-dropdown-item>
             <el-dropdown-item divided command="logout">
               <el-icon><SwitchButton /></el-icon>退出登录
@@ -115,7 +108,6 @@ const openLoginDialog = () => {
 // 登录成功处理
 const handleLoginSuccess = (user) => {
   loginDialogVisible.value = false
-  ElMessage.success(`欢迎回来，${user.nickname || user.username}！`)
 }
 
 // 注册成功处理
@@ -135,14 +127,6 @@ const handleCommand = (command) => {
     case 'upload':
       router.push('/profile')
       break
-    case 'favorites':
-      // 先不实现收藏功能，暂时也跳转到个人中心
-      router.push('/profile')
-      break
-    case 'history':
-      // 先不实现历史记录功能，暂时也跳转到个人中心
-      router.push('/profile')
-      break
     case 'logout':
       handleLogout()
       break
@@ -157,7 +141,6 @@ const handleLogout = () => {
     type: 'warning'
   }).then(() => {
     userStore.logout().then(() => {
-      ElMessage.success('已退出登录')
       router.push('/')
     })
   }).catch(() => {})

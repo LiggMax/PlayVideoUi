@@ -54,14 +54,12 @@
             <el-card v-for="item in myVideoList" :key="item.id" class="video-item">
               <div class="video-thumb" @click="goToVideo(item.id)">
                 <img :src="item.coverUrl" alt="视频封面" />
-                <span class="video-duration">{{ formatDuration(item.duration) }}</span>
               </div>
               <div class="video-info">
                 <h3 class="video-title" @click="goToVideo(item.id)">{{ item.title }}</h3>
                 <p class="video-stats">播放量: {{ item.views || 0 }} · 点赞: {{ item.likes || 0 }}</p>
                 <p class="upload-time">发布于: {{ formatDate(item.createTime) }}</p>
                 <div class="video-actions">
-                  <el-button type="primary" size="small" @click="editVideo(item)">编辑</el-button>
                   <el-button type="danger" size="small" @click="handleDeleteVideo(item.id)">删除</el-button>
                 </div>
               </div>
@@ -221,7 +219,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../store/user'
 import { Plus, VideoCamera } from '@element-plus/icons-vue'
 import { uploadVideo, uploadCover, saveVideo, getMyVideos, deleteVideo as deleteVideoApi } from '../api/video'
-import {getCurrentUser} from "@/api/user.js";
+import {getCurrentUser, updateUserInfoService} from "@/api/user.js";
 
 const router = useRouter()
 const route = useRoute()
@@ -316,29 +314,15 @@ const getUserInfo = async () => {
 }
 getUserInfo()
 // 更新用户信息
-const updateUserInfo = async () => {
+const updateUserInfo = async (id, data) => {
   await userFormRef.value.validate(async (valid) => {
     if (!valid) return
 
     try {
       updating.value = true
       // TODO: 调用后端API更新用户信息
-      // const response = await updateUserProfile(userForm)
-      
-      // 模拟更新成功
-      setTimeout(() => {
-        // 更新本地用户信息
-        userStore.user = {
-          ...userStore.user,
-          nickname: userForm.nickname,
-          avatarUrl: userForm.avatarUrl
-        }
-        userStore.setUserData(userStore.user)
-        
-        showEditUserDialog.value = false
-        ElMessage.success('个人信息更新成功')
-        updating.value = false
-      }, 500)
+      await updateUserInfoService(id, data);
+      ElMessage.success('更新用户信息成功')
     } catch (error) {
       console.error('更新用户信息失败:', error)
       ElMessage.error('更新用户信息失败，请稍后重试')
@@ -553,11 +537,6 @@ const loadMyVideos = async (page = 1) => {
   }
 }
 
-// 编辑视频
-const editVideo = (video) => {
-  // TODO: 跳转到视频编辑页面或打开编辑对话框
-  ElMessage.info('编辑视频功能待实现')
-}
 
 // 删除视频
 const handleDeleteVideo = (videoId) => {
