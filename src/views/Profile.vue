@@ -19,7 +19,7 @@
             </div>
           </div>
           <div class="user-actions">
-            <el-button type="primary" @click="showEditUserDialog = true">
+            <el-button type="primary" @click="openEditUserDialog">
               编辑个人信息
             </el-button>
             <el-button type="success" @click="showUploadDialog = true">
@@ -251,9 +251,18 @@ const showUploadDialog = ref(false)
 // 编辑用户表单
 const userFormRef = ref(null)
 const userForm = reactive({
-  nickname: userStore.nickname,
-  avatarUrl: userStore.avatar
+  nickname: '',
+  avatarUrl: ''
 })
+
+// 在打开编辑对话框时初始化表单数据
+const openEditUserDialog = () => {
+  userForm.nickname = userInfo.value.nickname || ''
+  userForm.avatarUrl = userInfo.value.avatarUrl || ''
+  showEditUserDialog.value = true
+}
+
+// 用户表单验证规则
 const userFormRules = {
   nickname: [
     { required: true, message: '请输入昵称', trigger: 'blur' },
@@ -307,25 +316,51 @@ const loadUserStats = async () => {
 }
 
 //获取用户信息
-
 const getUserInfo = async () => {
+  try {
+    loading.value = true
     const response = await getCurrentUser()
+    if (response.success && response.user) {
       userInfo.value = response.user
+      // 更新表单初始值
+      userForm.nickname = userInfo.value.nickname || ''
+      userForm.avatarUrl = userInfo.value.avatarUrl || ''
+    } else {
+      ElMessage.warning('获取用户信息失败')
+    }
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+    ElMessage.error('获取用户信息失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
 }
-getUserInfo()
+
 // 更新用户信息
-const updateUserInfo = async (id, data) => {
+const updateUserInfo = async () => {
   await userFormRef.value.validate(async (valid) => {
     if (!valid) return
 
     try {
       updating.value = true
-      // TODO: 调用后端API更新用户信息
-      await updateUserInfoService(id, data);
-      ElMessage.success('更新用户信息成功')
+      const response = await updateUserInfoService(userInfo.value.id, {
+        nickname: userForm.nickname,
+        avatarUrl: userForm.avatarUrl
+      })
+      
+      if (response.success) {
+        ElMessage.success('更新用户信息成功')
+        // 更新本地显示的用户信息
+        userInfo.value.nickname = userForm.nickname
+        userInfo.value.avatarUrl = userForm.avatarUrl
+
+        showEditUserDialog.value = false
+      } else {
+        ElMessage.error(response.message || '更新用户信息失败')
+      }
     } catch (error) {
-      console.error('更新用户信息失败:', error)
       ElMessage.error('更新用户信息失败，请稍后重试')
+    } finally {
       updating.value = false
     }
   })
@@ -571,6 +606,7 @@ const myVideoPageChange = (page) => {
 // 页面加载时初始化数据
 onMounted(() => {
   if (userStore.isLoggedIn) {
+    getUserInfo()
     loadMyVideos()
   }
 })
