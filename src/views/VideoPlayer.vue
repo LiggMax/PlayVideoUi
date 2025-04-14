@@ -102,7 +102,7 @@
               </el-button>
             </div>
             <div v-else class="login-to-comment">
-              请<el-button type="text" @click="goToLogin">登录</el-button>后发表评论
+              请<el-button type="text" @click="openLoginDialog">登录</el-button>后发表评论
             </div>
             
             <div v-if="comments.length > 0" class="comments-list">
@@ -340,10 +340,16 @@ const loadVideoDetail = async () => {
         }
       } catch (error) {
         console.error('获取粉丝数失败:', error);
+        // 获取粉丝数失败不影响页面其他功能
+        uploaderSubscribers.value = 0;
       }
       
-      // 检查订阅状态
-      await checkSubscriptionStatus();
+      // 检查订阅状态，仅对已登录用户执行
+      if (isLoggedIn.value) {
+        await checkSubscriptionStatus();
+      } else {
+        isSubscribed.value = false;
+      }
       
       // 加载相关视频（同类别的视频）
       await loadRelatedVideos()
@@ -390,28 +396,34 @@ const handleVideoPlay = async () => {
 // 处理点赞
 const handleLikeVideo = async () => {
   if (!isLoggedIn.value) {
-    ElMessage.warning('请先登录')
-    return
+    ElMessage({
+      message: '请先登录后再点赞',
+      type: 'warning',
+      onClose: () => {
+        openLoginDialog();
+      }
+    });
+    return;
   }
   
   if (likeClicked.value) {
-    return
+    return;
   }
   
   try {
-    if (!video.value.id) return
+    if (!video.value.id) return;
     
-    const response = await likeVideo(video.value.id)
+    const response = await likeVideo(video.value.id);
     
     if (response.success) {
-      video.value.likes++
-      likeClicked.value = true
-      ElMessage.success('点赞成功')
+      video.value.likes++;
+      likeClicked.value = true;
+      ElMessage.success('点赞成功');
     } else {
-      ElMessage.error(response.message || '点赞失败')
+      ElMessage.error(response.message || '点赞失败');
     }
   } catch (error) {
-    ElMessage.error('点赞失败，请稍后重试')
+    ElMessage.error('点赞失败，请稍后重试');
   }
 }
 
@@ -476,13 +488,19 @@ const goToUserProfile = () => {
 // 处理关注/取消关注
 const handleSubscribe = async () => {
   if (!isLoggedIn.value) {
-    ElMessage.warning('请先登录')
-    return
+    ElMessage({
+      message: '请先登录后再关注',
+      type: 'warning',
+      onClose: () => {
+        openLoginDialog();
+      }
+    });
+    return;
   }
   
   if (isCurrentUser.value) {
-    ElMessage.warning('不能关注自己')
-    return
+    ElMessage.warning('不能关注自己');
+    return;
   }
   
   try {
@@ -514,23 +532,19 @@ const handleSubscribe = async () => {
         console.error('关注失败:', response.message);
       }
     }
-    
-    // 无论成功失败，都再次检查一遍订阅状态，确保UI与后端状态一致
-    setTimeout(async () => {
-      try {
-        console.log('操作后重新检查订阅状态');
-        const checkResponse = await checkIsSubscribed(video.value.userId);
-        if (checkResponse.success) {
-          isSubscribed.value = checkResponse.data;
-        }
-      } catch (checkError) {
-        console.error('重新检查订阅状态失败:', checkError);
-      }
-    }, 500);
-    
   } catch (error) {
+    console.error('关注操作失败:', error);
     ElMessage.error('操作失败，请稍后重试');
   }
+}
+
+// 打开登录对话框
+const openLoginDialog = () => {
+  // 重定向到登录页面
+  router.push({
+    path: '/',
+    query: { login: 'true', redirect: router.currentRoute.value.fullPath }
+  });
 }
 
 // 加载评论列表
@@ -560,8 +574,14 @@ const loadComments = async (page = 1) => {
 // 提交评论
 const submitComment = async () => {
   if (!isLoggedIn.value) {
-    ElMessage.warning('请先登录')
-    return
+    ElMessage({
+      message: '请先登录后再评论',
+      type: 'warning',
+      onClose: () => {
+        openLoginDialog();
+      }
+    });
+    return;
   }
   
   if (!commentContent.value.trim()) {
@@ -596,8 +616,14 @@ const submitComment = async () => {
 // 切换回复表单
 const toggleReplyForm = (commentId) => {
   if (!isLoggedIn.value) {
-    ElMessage.warning('请先登录')
-    return
+    ElMessage({
+      message: '请先登录后再回复',
+      type: 'warning',
+      onClose: () => {
+        openLoginDialog();
+      }
+    });
+    return;
   }
   
   if (replyingTo.value === commentId) {
@@ -618,8 +644,14 @@ const cancelReply = () => {
 // 提交回复
 const submitReply = async (commentId) => {
   if (!isLoggedIn.value) {
-    ElMessage.warning('请先登录')
-    return
+    ElMessage({
+      message: '请先登录后再回复',
+      type: 'warning',
+      onClose: () => {
+        openLoginDialog();
+      }
+    });
+    return;
   }
   
   if (!replyContent.value.trim()) {
@@ -682,8 +714,14 @@ const removeComment = async (commentId) => {
 // 点赞评论
 const likeComment = async (commentId) => {
   if (!isLoggedIn.value) {
-    ElMessage.warning('请先登录')
-    return
+    ElMessage({
+      message: '请先登录后再点赞评论',
+      type: 'warning',
+      onClose: () => {
+        openLoginDialog();
+      }
+    });
+    return;
   }
   
   try {
@@ -774,11 +812,6 @@ const formatCommentDate = (dateString) => {
   })
 }
 
-// 跳转到登录页
-const goToLogin = () => {
-  router.push('/login?redirect=' + encodeURIComponent(router.currentRoute.value.fullPath))
-}
-
 // 在加载视频详情后，加载评论列表
 watch(() => video.value.id, (newId) => {
   if (newId) {
@@ -830,6 +863,8 @@ const checkSubscriptionStatus = async () => {
     }
   } catch (error) {
     console.error('检查订阅状态失败:', error);
+    // 错误处理：设置默认值为未订阅
+    isSubscribed.value = false;
   }
 }
 

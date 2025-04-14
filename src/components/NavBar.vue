@@ -53,7 +53,7 @@
       <!-- 已登录状态 -->
       <el-dropdown v-else trigger="click" @command="handleCommand" class="user-dropdown">
         <div class="user-avatar-container">
-          <el-avatar :size="32" :src="userStore.avatar"/>
+          <el-avatar :size="32" :src="userInfo?.avatarUrl || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'"/>
           <span class="username">{{ userStore.nickname }}</span>
           <el-icon class="el-icon--right">
             <arrow-down/>
@@ -210,16 +210,13 @@ const handleLogout = () => {
   }).catch(() => {
   })
 }
-
+const userInfo = ref()
 // 检查当前用户信息并更新
 const fetchUserInfo = async () => {
   if (userStore.isLoggedIn) {
     try {
       const response = await getCurrentUser();
-      if (response.success) {
-        // 使用userStore方法更新用户信息
-        userStore.updateUserInfo(response.data);
-      }
+     userInfo.value = response.user
     } catch (error) {
       console.error('获取用户信息失败:', error);
     }
