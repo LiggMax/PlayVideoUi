@@ -3,6 +3,7 @@ import Home from '../views/Home.vue'
 import VideoPlayer from '../views/VideoPlayer.vue'
 import Profile from '../views/Profile.vue'
 import Dynamic from '../views/Dynamic.vue'
+import SearchResults from '../views/SearchResults.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -28,6 +29,11 @@ const router = createRouter({
       path: '/dynamic',
       name: 'dynamic',
       component: Dynamic
+    },
+    {
+      path: '/search',
+      name: 'search',
+      component: SearchResults
     }
   ]
 })

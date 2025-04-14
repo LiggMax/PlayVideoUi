@@ -11,9 +11,30 @@
         <img src="../assets/Logo.svg" class="logo" alt="Logo"/>
         未来视点
       </div>
-      <div class="flex-grow"/>
+      
+      <!-- 导航菜单项 -->
       <el-menu-item index="/">首页</el-menu-item>
       <el-menu-item index="/dynamic">动态</el-menu-item>
+      
+      <!-- 搜索框 -->
+      <div class="search-container">
+        <el-input
+            v-model="searchKeyword"
+            placeholder="搜索视频"
+            class="search-input"
+            clearable
+            @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <el-icon class="search-icon"><Search /></el-icon>
+          </template>
+          <template #append>
+            <el-button @click="handleSearch">搜索</el-button>
+          </template>
+        </el-input>
+      </div>
+
+      <div class="flex-grow"/>
 
       <!-- 未登录状态 -->
       <div v-if="!userStore.isLoggedIn" class="user-auth-wrapper">
@@ -91,7 +112,8 @@ import {
   Clock,
   ArrowDown,
   SwitchButton,
-  VideoCamera
+  VideoCamera,
+  Search
 } from '@element-plus/icons-vue'
 import {ElMessageBox, ElMessage} from 'element-plus'
 import LoginRegister from './LoginRegister.vue'
@@ -103,6 +125,7 @@ const loginRegisterRef = ref(null)
 const userStore = useUserStore()
 const route = useRoute()
 const router = useRouter()
+const searchKeyword = ref('')
 
 // 计算当前激活的菜单项
 const activeIndex = computed(() => {
@@ -112,6 +135,31 @@ const activeIndex = computed(() => {
 // 点击Logo跳转到首页
 const goToHome = () => {
   router.push('/')
+}
+
+// 搜索处理
+const handleSearch = () => {
+  if (!searchKeyword.value.trim()) {
+    ElMessage.warning('请输入搜索关键词')
+    return
+  }
+
+  router.push({
+    path: '/search',
+    query: { keyword: searchKeyword.value.trim() }
+  })
+}
+
+// 清空搜索框
+const clearSearch = () => {
+  searchKeyword.value = ''
+}
+
+// 接收从URL参数获取搜索关键词
+const setSearchKeywordFromUrl = () => {
+  if (route.path === '/search' && route.query.keyword) {
+    searchKeyword.value = route.query.keyword
+  }
 }
 
 // 打开登录对话框
@@ -180,6 +228,7 @@ const fetchUserInfo = async () => {
 
 onMounted(() => {
   fetchUserInfo();
+  setSearchKeywordFromUrl();
 })
 </script>
 
@@ -187,6 +236,8 @@ onMounted(() => {
 .nav-menu {
   width: 100%;
   padding: 0 20px;
+  display: flex;
+  align-items: center;
 }
 
 .logo-container {
@@ -203,6 +254,40 @@ onMounted(() => {
 .logo {
   height: 30px;
   margin-right: 10px;
+}
+
+.search-container {
+  flex: 1;
+  max-width: 500px;
+  margin: 0 20px;
+}
+
+.search-input {
+  width: 100%;
+}
+
+.search-icon {
+  color: #909399;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .search-container {
+    max-width: 200px;
+    margin: 0 10px;
+  }
+  
+  .nav-menu {
+    padding: 0 10px;
+  }
+  
+  .logo-container {
+    padding: 0 10px;
+  }
+  
+  .username {
+    display: none;
+  }
 }
 
 .flex-grow {
