@@ -52,12 +52,15 @@
           </div>
           <div v-else class="video-list">
             <el-card v-for="item in myVideoList" :key="item.id" class="video-item">
-              <div class="video-thumb" @click="goToVideo(item.id)">
+              <div class="video-thumb" >
                 <img :src="item.coverUrl" alt="视频封面" />
               </div>
               <div class="video-info">
                 <h3 class="video-title" @click="goToVideo(item.id)">{{ item.title }}</h3>
-                <p class="video-stats">播放量: {{ item.views || 0 }} · 点赞: {{ item.likes || 0 }}</p>
+                <p class="video-stats">
+                  播放量: {{ item.views || 0 }} · 点赞: {{ item.likes || 0 }} 
+                  <span class="category">{{ formatCategory(item.category) }}</span>
+                </p>
                 <p class="upload-time">发布于: {{ formatDate(item.createTime) }}</p>
                 <div class="video-actions">
                   <el-button type="danger" size="small" @click="handleDeleteVideo(item.id)">删除</el-button>
@@ -171,8 +174,6 @@
             <el-option label="动画" value="animation" />
             <el-option label="运动" value="sports" />
             <el-option label="美食" value="food" />
-            <el-option label="旅游" value="travel" />
-            <el-option label="教育" value="education" />
             <el-option label="其他" value="other" />
           </el-select>
         </el-form-item>
@@ -219,7 +220,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../store/user'
 import { Plus, VideoCamera } from '@element-plus/icons-vue'
 import { uploadVideo, uploadCover, saveVideo, getMyVideos, deleteVideo as deleteVideoApi } from '../api/video'
-import {getCurrentUser, updateUserInfoService} from "@/api/user.js";
+import { getCurrentUser, updateUserInfoService } from "@/api/user.js"
+import { formatDate, formatCategory, formatDuration } from '../utils/videoUtils'
 
 const router = useRouter()
 const route = useRoute()
@@ -305,15 +307,6 @@ const uploadRules = {
   ]
 }
 
-// 加载用户统计数据
-const loadUserStats = async () => {
-  try {
-    // 模拟数据 - 只保留视频数量
-    userStats.videoCount = myVideoTotal.value
-  } catch (error) {
-    console.error('获取用户统计数据失败:', error)
-  }
-}
 
 //获取用户信息
 const getUserInfo = async () => {
@@ -329,7 +322,6 @@ const getUserInfo = async () => {
       ElMessage.warning('获取用户信息失败')
     }
   } catch (error) {
-    console.error('获取用户信息失败:', error)
     ElMessage.error('获取用户信息失败，请稍后重试')
   } finally {
     loading.value = false
@@ -365,38 +357,17 @@ const updateUserInfo = async () => {
     }
   })
 }
-
-// 跳转到视频播放页
-const goToVideo = (videoId) => {
-  router.push({ name: 'video', params: { id: videoId } })
-}
-
-// 格式化日期
-const formatDate = (date) => {
-  if (!date) return '未知'
-  const d = new Date(date)
-  return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
-}
-
-// 格式化时长
-const formatDuration = (seconds) => {
-  if (!seconds) return '00:00'
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
-  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
-}
-
 // 处理封面图片上传
 const handleCoverChange = (file) => {
   const isImage = file.raw.type.indexOf('image/') !== -1
-  const isLt2M = file.raw.size / 1024 / 1024 < 2
+  const isLt2M = file.raw.size / 1024 / 1024 < 20
 
   if (!isImage) {
     ElMessage.error('封面图片只能是图片格式!')
     return false
   }
   if (!isLt2M) {
-    ElMessage.error('封面图片大小不能超过 2MB!')
+    ElMessage.error('封面图片大小不能超过 20MB!')
     return false
   }
 
@@ -814,6 +785,15 @@ onMounted(() => {
   font-size: 0.8rem;
   color: #888;
   margin: 5px 0;
+}
+
+.video-stats .category {
+  background-color: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #606266;
+  display: inline-block;
+  margin-left: 5px;
 }
 
 .upload-time {

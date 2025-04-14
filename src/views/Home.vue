@@ -23,6 +23,8 @@
                       <span>{{ formatNumber(video.views) }} 播放</span>
                       <span class="dot">·</span>
                       <span>{{ formatNumber(video.likes) }} 赞</span>
+                      <span class="dot">·</span>
+                      <span class="video-category">{{ formatCategory(video.category) }}</span>
                     </p>
                   </div>
                 </el-card>
@@ -73,7 +75,10 @@
                   </div>
                   <div class="popular-info">
                     <h4 class="popular-title">{{ video.title }}</h4>
-                    <p class="popular-stats">{{ formatNumber(video.views) }} 播放</p>
+                    <p class="popular-stats">
+                      {{ formatNumber(video.views) }} 播放
+                      <span class="popular-category">{{ formatCategory(video.category) }}</span>
+                    </p>
                   </div>
                 </div>
               </div>
@@ -91,6 +96,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Trophy } from '@element-plus/icons-vue'
 import { getLatestVideos, getPopularVideos } from '../api/video'
+import { formatNumber, formatCategory } from '../utils/videoUtils'
 
 const router = useRouter()
 const latestVideos = ref([])
@@ -141,16 +147,6 @@ const handleLatestPageChange = (page) => {
 // 跳转到视频详情页
 const goToVideo = (videoId) => {
   router.push({ path: `/video/${videoId}` })
-}
-
-// 格式化数字（如：1000 -> 1k）
-const formatNumber = (num) => {
-  if (num >= 1000000) {
-    return (num / 1000000).toFixed(1) + 'M'
-  } else if (num >= 1000) {
-    return (num / 1000).toFixed(1) + 'K'
-  }
-  return num
 }
 
 // 组件挂载时加载视频
@@ -367,6 +363,15 @@ onMounted(() => {
   align-items: center;
 }
 
+.popular-category {
+  background-color: #f0f0f0;
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: #606266;
+  font-size: 11px;
+  margin-left: 8px;
+}
+
 .popular-stats:before {
   content: '';
   display: inline-block;
@@ -375,5 +380,13 @@ onMounted(() => {
   background-color: #ddd;
   border-radius: 50%;
   margin-right: 5px;
+}
+
+.video-category {
+  background-color: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #606266;
+  font-size: 12px;
 }
 </style>

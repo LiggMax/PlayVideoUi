@@ -41,10 +41,10 @@
             
             <div class="author-info">
               <div class="author-avatar-container">
-                <el-avatar :size="50" :src="uploaderAvatar" @click="goToUserProfile" />
+                <el-avatar :size="50" :src="uploaderAvatar" />
               </div>
               <div class="author-details">
-                <h3 class="author-name" @click="goToUserProfile" style="cursor: pointer">{{ video.uploaderName }}</h3>
+                <h3 class="author-name"  style="cursor: pointer">{{ video.uploaderName }}</h3>
                 <p class="upload-date">上传于 {{ formatDate(video.createTime) }}</p>
                 <p v-if="uploaderSubscribers" class="subscriber-count">{{ formatNumber(uploaderSubscribers) }} 位关注者</p>
               </div>
@@ -245,6 +245,7 @@ import { getVideoDetail, incrementViews, likeVideo, getVideosByCategory } from '
 import { getUserInfo, subscribeUser, unsubscribeUser, isSubscribed as checkIsSubscribed, getSubscriberCount } from '../api/user'
 import { useUserStore } from '../store/user'
 import { getVideoComments, postComment, deleteComment, replyComment, likeComment as likeCommentApi } from '../api/comment'
+import { formatCategory, formatAvatarUrl } from '../utils/videoUtils'
 
 const router = useRouter()
 const route = useRoute()
@@ -302,7 +303,7 @@ const loadVideoDetail = async () => {
     
     if (!videoId) {
       ElMessage.error('视频ID无效')
-  router.push('/')
+      router.push('/')
       return
     }
     
@@ -328,12 +329,24 @@ const loadVideoDetail = async () => {
       }
       
       // 设置上传者信息
-      uploaderAvatar.value = userInfo.avatarUrl || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+      // 从API返回的userInfo直接获取头像URL
+      uploaderAvatar.value = userInfo.avatarUrl
+      
+      // 获取用户的粉丝数
+      try {
+        const subscriberResponse = await getSubscriberCount(video.value.userId);
+        if (subscriberResponse.success) {
+          uploaderSubscribers.value = subscriberResponse.data;
+        }
+      } catch (error) {
+        console.error('获取粉丝数失败:', error);
+      }
+      
+      // 检查订阅状态
+      await checkSubscriptionStatus();
       
       // 加载相关视频（同类别的视频）
       await loadRelatedVideos()
-      // 加载上传者信息
-      await loadUploaderInfo()
     } else {
       await router.push('/')
     }
@@ -358,62 +371,6 @@ const loadRelatedVideos = async () => {
     }
   } catch (error) {
     console.error('加载相关视频失败:', error)
-  }
-}
-
-// 加载上传者信息
-const loadUploaderInfo = async () => {
-  try {
-    // 重置上传者信息
-    uploaderAvatar.value = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png';
-    uploaderSubscribers.value = 0;
-    isSubscribed.value = false;
-    
-    if (video.value.userId) {
-      const response = await getUserInfo(video.value.userId);
-
-      if (response.success && response.data) {
-        const userData = response.data.user || response.data;
-        if (userData.avatarUrl) {
-          uploaderAvatar.value = userData.avatarUrl;
-        }
-        
-        // 获取用户的粉丝数
-        const subscriberResponse = await getSubscriberCount(video.value.userId);
-
-        if (subscriberResponse.success) {
-          uploaderSubscribers.value = subscriberResponse.data;
-        }
-        
-        // 检查当前用户是否已关注该上传者
-        if (isLoggedIn.value && userStore.user) {
-
-          try {
-            // 明确打印出请求参数
-            const subscriptionResponse = await checkIsSubscribed(video.value.userId);
-
-            if (subscriptionResponse.success) {
-              isSubscribed.value = subscriptionResponse.data;
-            } else if (subscriptionResponse.code === 401) {
-              // 如果返回401错误，说明用户未登录或token已过期
-              isSubscribed.value = false;
-            } else {
-              isSubscribed.value = false; // 确保设置默认值
-            }
-          } catch (subError) {
-            isSubscribed.value = false; // 确保设置默认值
-          }
-        } else {
-          isSubscribed.value = false;
-        }
-      }
-    }
-  } catch (error) {
-    console.error('加载上传者信息失败:', error);
-    // 确保在出错时设置默认值
-    uploaderAvatar.value = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png';
-    uploaderSubscribers.value = 0;
-    isSubscribed.value = false;
   }
 }
 
@@ -832,14 +789,6 @@ watch(() => video.value.id, (newId) => {
 // 组件挂载时加载视频详情
 onMounted(() => {
   loadVideoDetail()
-  
-  // 页面加载后，延迟再次检查订阅状态，以防首次加载未成功获取状态
-  setTimeout(() => {
-    if (video.value.userId && isLoggedIn.value && !isSubscribed.value) {
-      console.log('页面加载后延迟重新检查订阅状态');
-      loadUploaderInfo();
-    }
-  }, 1000);
 })
 
 // 监听路由参数变化，当视频ID变化时重新加载
@@ -852,7 +801,7 @@ watch(
       isSubscribed.value = false;
       likeClicked.value = false;
       viewIncremented.value = false;
-      // 加载新视频
+      // 直接加载新视频，API会返回完整的用户信息
       loadVideoDetail();
     }
   }
@@ -862,15 +811,27 @@ watch(
 watch(
   () => userStore.isLoggedIn,
   (newLoginState) => {
-    if (video.value.userId) {
+    if (video.value.userId && newLoginState) {
       console.log('登录状态变化，重新检查订阅状态');
-      // 仅重新加载上传者信息和订阅状态
-      setTimeout(() => {
-        loadUploaderInfo();
-      }, 500);
+      // 检查订阅状态
+      checkSubscriptionStatus();
     }
   }
 )
+
+// 检查订阅状态
+const checkSubscriptionStatus = async () => {
+  if (!isLoggedIn.value || !video.value.userId) return;
+  
+  try {
+    const subscriptionResponse = await checkIsSubscribed(video.value.userId);
+    if (subscriptionResponse.success) {
+      isSubscribed.value = subscriptionResponse.data;
+    }
+  } catch (error) {
+    console.error('检查订阅状态失败:', error);
+  }
+}
 
 // 监听token变化
 watch(
@@ -878,9 +839,9 @@ watch(
   (newToken) => {
     if (video.value.userId && newToken) {
       console.log('认证Token变化，重新检查订阅状态');
-      // 延迟一小段时间再重新加载，确保token已经被设置到headers中
+      // 延迟一小段时间再重新检查，确保token已经被设置到headers中
       setTimeout(() => {
-        loadUploaderInfo();
+        checkSubscriptionStatus();
       }, 500);
     }
   }
