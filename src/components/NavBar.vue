@@ -1,28 +1,30 @@
 <template>
   <el-header>
     <el-menu
-      mode="horizontal"
-      :ellipsis="false"
-      class="nav-menu"
-      router
-      :default-active="activeIndex"
+        mode="horizontal"
+        :ellipsis="false"
+        class="nav-menu"
+        router
+        :default-active="activeIndex"
     >
       <div class="logo-container" @click="goToHome">
         <img src="../assets/Logo.svg" class="logo" alt="Logo"/>
         未来视点
       </div>
-      <div class="flex-grow" />
+      <div class="flex-grow"/>
       <el-menu-item index="/">首页</el-menu-item>
       <el-menu-item index="/dynamic">动态</el-menu-item>
 
       <!-- 未登录状态 -->
       <div v-if="!userStore.isLoggedIn" class="user-auth-wrapper">
         <el-button
-          text
-          class="login-btn"
-          @click="openLoginDialog"
+            text
+            class="login-btn"
+            @click="openLoginDialog"
         >
-          <el-icon><Avatar /></el-icon>
+          <el-icon>
+            <Avatar/>
+          </el-icon>
           <span class="login-text">登录/注册</span>
         </el-button>
       </div>
@@ -30,59 +32,71 @@
       <!-- 已登录状态 -->
       <el-dropdown v-else trigger="click" @command="handleCommand" class="user-dropdown">
         <div class="user-avatar-container">
-          <el-avatar :size="32" :src="userStore.avatar" />
+          <el-avatar :size="32" :src="userStore.avatar"/>
           <span class="username">{{ userStore.nickname }}</span>
-          <el-icon class="el-icon--right"><arrow-down /></el-icon>
+          <el-icon class="el-icon--right">
+            <arrow-down/>
+          </el-icon>
         </div>
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item command="profile">
-              <el-icon><User /></el-icon>个人中心
+              <el-icon>
+                <User/>
+              </el-icon>
+              个人中心
             </el-dropdown-item>
             <el-dropdown-item command="upload">
-              <el-icon><VideoCamera /></el-icon>上传视频
+              <el-icon>
+                <VideoCamera/>
+              </el-icon>
+              上传视频
             </el-dropdown-item>
             <el-dropdown-item divided command="logout">
-              <el-icon><SwitchButton /></el-icon>退出登录
+              <el-icon>
+                <SwitchButton/>
+              </el-icon>
+              退出登录
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
     </el-menu>
-    
+
     <!-- 登录注册弹窗 -->
     <el-dialog
-      v-model="loginDialogVisible"
-      title=""
-      width="450px"
-      :show-close="true"
-      :destroy-on-close="true"
-      class="login-dialog"
+        v-model="loginDialogVisible"
+        title=""
+        width="450px"
+        :show-close="true"
+        :destroy-on-close="true"
+        class="login-dialog"
     >
-      <LoginRegister 
-        ref="loginRegisterRef" 
-        @login-success="handleLoginSuccess"
-        @register-success="handleRegisterSuccess"
+      <LoginRegister
+          ref="loginRegisterRef"
+          @login-success="handleLoginSuccess"
+          @register-success="handleRegisterSuccess"
       />
     </el-dialog>
   </el-header>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { 
-  Avatar, 
-  User, 
-  Star, 
-  Clock, 
-  ArrowDown, 
+import {ref, computed, onMounted, reactive} from 'vue'
+import {useRoute, useRouter} from 'vue-router'
+import {
+  Avatar,
+  User,
+  Star,
+  Clock,
+  ArrowDown,
   SwitchButton,
   VideoCamera
 } from '@element-plus/icons-vue'
-import { ElMessageBox, ElMessage } from 'element-plus'
+import {ElMessageBox, ElMessage} from 'element-plus'
 import LoginRegister from './LoginRegister.vue'
-import { useUserStore } from '../store/user'
+import {useUserStore} from '../store/user'
+import {getCurrentUser} from "@/api/user.js";
 
 const loginDialogVisible = ref(false)
 const loginRegisterRef = ref(null)
@@ -108,6 +122,8 @@ const openLoginDialog = () => {
 // 登录成功处理
 const handleLoginSuccess = (user) => {
   loginDialogVisible.value = false
+  // 登录成功后刷新用户信息
+  fetchUserInfo()
 }
 
 // 注册成功处理
@@ -143,8 +159,28 @@ const handleLogout = () => {
     userStore.logout().then(() => {
       router.push('/')
     })
-  }).catch(() => {})
+  }).catch(() => {
+  })
 }
+
+// 检查当前用户信息并更新
+const fetchUserInfo = async () => {
+  if (userStore.isLoggedIn) {
+    try {
+      const response = await getCurrentUser();
+      if (response.success) {
+        // 使用userStore方法更新用户信息
+        userStore.updateUserInfo(response.data);
+      }
+    } catch (error) {
+      console.error('获取用户信息失败:', error);
+    }
+  }
+}
+
+onMounted(() => {
+  fetchUserInfo();
+})
 </script>
 
 <style scoped>

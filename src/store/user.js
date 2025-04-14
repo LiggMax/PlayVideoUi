@@ -15,7 +15,24 @@ export const useUserStore = defineStore('user', () => {
 
   // 计算属性
   const isLoggedIn = computed(() => !!user.value && !!token.value);
-  const avatar = computed(() => user.value?.avatarUrl || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png');
+  const avatar = computed(() => {
+    if (!user.value) return 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png';
+    
+    // 获取头像URL
+    let avatarUrl = user.value.avatarUrl;
+    
+    // 检查头像URL是否存在
+    if (!avatarUrl) {
+      return 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png';
+    }
+    
+    // 检查URL是否是相对路径，如果是，添加baseURL
+    if (avatarUrl && !avatarUrl.startsWith('http') && !avatarUrl.startsWith('data:')) {
+      avatarUrl = `http://localhost:8080${avatarUrl.startsWith('/') ? '' : '/'}${avatarUrl}`;
+    }
+    
+    return avatarUrl;
+  });
   const nickname = computed(() => user.value?.nickname || user.value?.username || '');
   const username = computed(() => user.value?.username || '');
 
@@ -131,6 +148,14 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // 更新用户信息
+  function updateUserInfo(userData) {
+    if (userData) {
+      user.value = userData;
+      localStorage.setItem('user', JSON.stringify(userData));
+    }
+  }
+
   return {
     user,
     token,
@@ -141,6 +166,7 @@ export const useUserStore = defineStore('user', () => {
     username,
     login,
     register,
-    logout
+    logout,
+    updateUserInfo
   };
 });
