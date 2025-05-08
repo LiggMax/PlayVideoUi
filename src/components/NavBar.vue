@@ -34,6 +34,18 @@
         </el-input>
       </div>
 
+      <!-- 分类导航 -->
+      <div class="category-nav">
+        <el-link v-for="(name, key) in categoryMap" 
+          :key="key" 
+          :href="`/category/${key}`" 
+          :underline="false"
+          class="category-link"
+        >
+          {{ name }}
+        </el-link>
+      </div>
+
       <div class="flex-grow"/>
 
       <!-- 未登录状态 -->
@@ -113,7 +125,8 @@ import {
   ArrowDown,
   SwitchButton,
   VideoCamera,
-  Search
+  Search,
+  Menu
 } from '@element-plus/icons-vue'
 import {ElMessageBox, ElMessage} from 'element-plus'
 import LoginRegister from './LoginRegister.vue'
@@ -135,6 +148,23 @@ const activeIndex = computed(() => {
 // 点击Logo跳转到首页
 const goToHome = () => {
   router.push('/')
+}
+
+// 构建分类映射表
+const categoryMap = {
+  'technology': '科技',
+  'game': '游戏',
+  'music': '音乐',
+  'movie': '电影',
+  'animation': '动画',
+  'sports': '运动',
+  'food': '美食',
+  'other': '其他'
+}
+
+// 处理分类点击
+const handleCategoryClick = (category) => {
+  router.push(`/category/${category}`)
 }
 
 // 搜索处理
@@ -267,11 +297,32 @@ onMounted(() => {
   color: #909399;
 }
 
+/* 分类导航样式 */
+.category-nav {
+  display: flex;
+  flex-wrap: wrap;
+  margin-left: 10px;
+}
+
+.category-link {
+  margin: 0 8px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.category-link:hover {
+  color: #409EFF;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .search-container {
     max-width: 200px;
     margin: 0 10px;
+  }
+  
+  .category-nav {
+    display: none; /* 在小屏幕上隐藏分类导航 */
   }
   
   .nav-menu {

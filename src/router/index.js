@@ -34,6 +34,12 @@ const router = createRouter({
       path: '/search',
       name: 'search',
       component: SearchResults
+    },
+    {
+      path: '/category/:category',
+      name: 'category',
+      component: () => import('../views/CategoryVideos.vue'),
+      props: true
     }
   ]
 })
