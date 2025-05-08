@@ -21,14 +21,33 @@
         
         <div v-else>
         <div class="video-container">
-          <video
+          <div class="video-wrapper">
+            <video
               ref="videoPlayer"
-            controls
-            class="video-player"
+              controls
+              class="video-player"
               :src="video.videoUrl"
               :poster="video.coverUrl || 'https://via.placeholder.com/1280x720'"
               @play="handleVideoPlay"
-          ></video>
+              @timeupdate="handleTimeUpdate"
+            ></video>
+            <canvas ref="danmuCanvas" class="danmu-canvas"></canvas>
+          </div>
+        </div>
+
+        <div class="danmu-send-box">
+          <el-input
+            v-model="danmuContent"
+            placeholder="发送弹幕..."
+            :disabled="!isLoggedIn"
+            @keyup.enter="handleSendDanmu"
+          >
+            <template #append>
+              <el-button @click="handleSendDanmu" :disabled="!isLoggedIn || !danmuContent.trim()">
+                发送弹幕
+              </el-button>
+            </template>
+          </el-input>
         </div>
 
         <div class="video-details">
@@ -237,11 +256,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Star, Share } from '@element-plus/icons-vue'
-import { getVideoDetail, incrementViews, likeVideo, getVideosByCategory } from '../api/video'
+import { getVideoDetail, incrementViews, likeVideo, getVideosByCategory, sendDanmu, getDanmu } from '../api/video'
 import { getUserInfo, subscribeUser, unsubscribeUser, isSubscribed as checkIsSubscribed, getSubscriberCount } from '../api/user'
 import { useUserStore } from '../store/user'
 import { getVideoComments, postComment, deleteComment, replyComment, likeComment as likeCommentApi } from '../api/comment'
@@ -294,6 +313,14 @@ const replyContent = ref('')
 const submittingReply = ref(false)
 const commentPage = ref(1)
 const defaultAvatar = 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
+
+// 弹幕相关变量
+const danmuContent = ref('')
+const danmuCanvas = ref(null)
+const danmuList = ref([])
+const activeDanmus = ref([])
+const canvasContext = ref(null)
+const animationFrameId = ref(null)
 
 // 加载视频详情
 const loadVideoDetail = async () => {
@@ -822,6 +849,9 @@ watch(() => video.value.id, (newId) => {
 // 组件挂载时加载视频详情
 onMounted(() => {
   loadVideoDetail()
+  
+  // 监听窗口大小变化，调整Canvas大小
+  window.addEventListener('resize', resizeDanmuCanvas)
 })
 
 // 监听路由参数变化，当视频ID变化时重新加载
@@ -881,6 +911,205 @@ watch(
     }
   }
 )
+
+// 发送弹幕
+const handleSendDanmu = async () => {
+  if (!isLoggedIn.value) {
+    ElMessage({
+      message: '请先登录后再发送弹幕',
+      type: 'warning',
+      onClose: () => {
+        openLoginDialog();
+      }
+    });
+    return;
+  }
+  
+  if (!danmuContent.value.trim()) {
+    return;
+  }
+  
+  try {
+    // 获取当前视频播放时间作为时间戳
+    const currentTime = Math.floor(videoPlayer.value.currentTime || 0);
+    
+    const response = await sendDanmu({
+      videoId: video.value.id,
+      content: danmuContent.value.trim(),
+      time: currentTime
+    });
+    
+    if (response.success) {
+      ElMessage.success('弹幕发送成功');
+      
+      // 立即在画面上显示新发送的弹幕
+      const newDanmu = {
+        id: Date.now(), // 临时ID
+        content: danmuContent.value.trim(),
+        time: currentTime,
+        timeFlag: currentTime, // 添加一致的时间标识
+        isActive: true,
+        x: danmuCanvas.value.width,
+        y: Math.floor(Math.random() * (danmuCanvas.value.height - 30)) + 15,
+        speed: Math.random() * 2 + 1,
+        color: getRandomColor()
+      };
+      
+      // 添加到弹幕列表和活动弹幕
+      danmuList.value.push(newDanmu);
+      activeDanmus.value.push(newDanmu);
+      
+      // 清空输入框
+      danmuContent.value = '';
+    } else {
+      ElMessage.error(response.message || '弹幕发送失败');
+    }
+  } catch (error) {
+    console.error('发送弹幕失败:', error);
+    ElMessage.error('弹幕发送失败，请稍后重试');
+  }
+}
+
+// 加载弹幕数据
+const loadDanmuData = async () => {
+  try {
+    if (!video.value.id) return
+    
+    const response = await getDanmu(video.value.id)
+    
+    if (response.success && response.data) {
+      console.log('获取到弹幕数据:', response.data);
+      danmuList.value = response.data.map(item => ({
+        ...item,
+        isActive: false,
+        x: danmuCanvas.value ? danmuCanvas.value.width : window.innerWidth,
+        y: Math.floor(Math.random() * (danmuCanvas.value ? (danmuCanvas.value.height - 30) : 300)) + 15,
+        speed: Math.random() * 2 + 1,
+        color: getRandomColor(),
+        timeFlag: parseInt(item.time) // 确保时间是数字类型
+      }))
+    }
+  } catch (error) {
+    console.error('获取弹幕数据失败:', error)
+  }
+}
+
+// 初始化弹幕Canvas
+const initDanmuCanvas = () => {
+  if (!danmuCanvas.value || !videoPlayer.value) return
+  
+  const videoElem = videoPlayer.value
+  danmuCanvas.value.width = videoElem.clientWidth
+  danmuCanvas.value.height = videoElem.clientHeight
+  canvasContext.value = danmuCanvas.value.getContext('2d')
+  
+  // 设置Canvas文本样式
+  canvasContext.value.font = 'bold 20px Arial'
+  canvasContext.value.textBaseline = 'middle'
+  
+  console.log('Canvas初始化完成, 宽度:', danmuCanvas.value.width, '高度:', danmuCanvas.value.height);
+  
+  // 开始渲染动画
+  renderDanmu()
+}
+
+// 处理视频时间更新
+const handleTimeUpdate = () => {
+  if (!videoPlayer.value || !danmuList.value.length) return
+  
+  const currentTime = Math.floor(videoPlayer.value.currentTime)
+  console.log('当前播放时间:', currentTime, '活动弹幕数:', activeDanmus.value.length);
+  
+  // 查找当前时间应该显示的弹幕
+  danmuList.value.forEach(danmu => {
+    // 使用更宽松的条件，确保能匹配到对应时间的弹幕
+    if (danmu.timeFlag === currentTime && !danmu.isActive) {
+      console.log('激活弹幕:', danmu.content, '时间:', danmu.timeFlag);
+      danmu.isActive = true;
+      
+      // 重新设置初始位置，确保从屏幕右侧开始
+      if (danmuCanvas.value) {
+        danmu.x = danmuCanvas.value.width;
+      }
+      
+      activeDanmus.value.push(danmu);
+    }
+  })
+}
+
+// 渲染弹幕
+const renderDanmu = () => {
+  if (!canvasContext.value) return
+  
+  // 清空画布
+  canvasContext.value.clearRect(0, 0, danmuCanvas.value.width, danmuCanvas.value.height)
+  
+  // 绘制活动弹幕
+  activeDanmus.value = activeDanmus.value.filter(danmu => {
+    // 更新位置
+    danmu.x -= danmu.speed
+    
+    // 绘制文本
+    canvasContext.value.fillStyle = danmu.color
+    canvasContext.value.fillText(danmu.content, danmu.x, danmu.y)
+    
+    // 当弹幕完全离开屏幕时，从活动列表中移除
+    return danmu.x + canvasContext.value.measureText(danmu.content).width > 0
+  })
+  
+  // 继续渲染动画
+  animationFrameId.value = requestAnimationFrame(renderDanmu)
+}
+
+// 生成随机颜色
+const getRandomColor = () => {
+  const colors = [
+    '#FFFFFF', // 白色
+    '#FF0000', // 红色
+    '#00FF00', // 绿色
+    '#FFFF00', // 黄色
+    '#00FFFF', // 青色
+    '#FF00FF', // 粉色
+    '#0000FF'  // 蓝色
+  ]
+  return colors[Math.floor(Math.random() * colors.length)]
+}
+
+// 调整Canvas大小的函数
+const resizeDanmuCanvas = () => {
+  if (!danmuCanvas.value || !videoPlayer.value) return
+  
+  danmuCanvas.value.width = videoPlayer.value.clientWidth
+  danmuCanvas.value.height = videoPlayer.value.clientHeight
+}
+
+// 组件卸载前清理资源
+onBeforeUnmount(() => {
+  // 取消动画
+  if (animationFrameId.value) {
+    cancelAnimationFrame(animationFrameId.value)
+  }
+  
+  // 移除事件监听
+  window.removeEventListener('resize', resizeDanmuCanvas)
+})
+
+// 监听视频ID变化，加载弹幕数据
+watch(
+  () => video.value.id,
+  (newId) => {
+    if (newId) {
+      // 先初始化Canvas再加载弹幕数据
+      setTimeout(() => {
+        initDanmuCanvas()
+        // 确保Canvas初始化后再加载弹幕数据
+        setTimeout(() => {
+          loadDanmuData()
+        }, 300)
+      }, 500)
+    }
+  }
+)
 </script>
 
 <style scoped>
@@ -898,13 +1127,27 @@ watch(
   margin-bottom: 20px;
   background-color: #000;
   display: flex;
+  flex-direction: column;
   justify-content: center;
+}
+
+.video-wrapper {
+  position: relative;
+  width: 100%;
 }
 
 .video-player {
   width: 100%;
   max-height: 70vh;
   background-color: #000;
+}
+
+.danmu-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 10;
 }
 
 .video-details {
@@ -1177,5 +1420,12 @@ watch(
   margin-top: 20px;
   display: flex;
   justify-content: center;
+}
+
+/* 弹幕发送框样式 */
+.danmu-send-box {
+  margin-top: 10px;
+  margin-bottom: 20px;
+  max-width: 600px;
 }
 </style>

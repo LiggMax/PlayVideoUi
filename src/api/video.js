@@ -171,4 +171,25 @@ export function searchVideos(keyword, page = 1, size = 8) {
     method: 'get',
     params: { keyword, page, size }
   })
-} 
+}
+
+/**
+ * 发送弹幕
+ */
+export function sendDanmu(data) {
+  return request({
+    url: '/api/video/saveDanmu',
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 获取弹幕
+ */
+export function getDanmu(id) {
+  return request({
+    url: `/api/video/getDanmu/${id}`,
+    method: 'get'
+  })
+}
