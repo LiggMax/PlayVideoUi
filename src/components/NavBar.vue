@@ -13,8 +13,14 @@
       </div>
       
       <!-- 导航菜单项 -->
-      <el-menu-item index="/">首页</el-menu-item>
-      <el-menu-item index="/dynamic">动态</el-menu-item>
+      <el-menu-item index="/">
+        <el-icon><HomeFilled /></el-icon>
+        <span>首页</span>
+      </el-menu-item>
+      <el-menu-item index="/dynamic">
+        <el-icon><Bell /></el-icon>
+        <span>动态</span>
+      </el-menu-item>
       
       <!-- 搜索框 -->
       <div class="search-container">
@@ -42,6 +48,9 @@
           :underline="false"
           class="category-link"
         >
+          <el-icon class="category-icon" :size="14">
+            <component :is="getCategoryIcon(key)" />
+          </el-icon>
           {{ name }}
         </el-link>
       </div>
@@ -126,7 +135,16 @@ import {
   SwitchButton,
   VideoCamera,
   Search,
-  Menu
+  Promotion,
+  HomeFilled,
+  Bell,
+  Monitor,
+  Film,
+  Headset,
+  Basketball,
+  Burger,
+  VideoPlay,
+  More
 } from '@element-plus/icons-vue'
 import {ElMessageBox, ElMessage} from 'element-plus'
 import LoginRegister from './LoginRegister.vue'
@@ -160,6 +178,21 @@ const categoryMap = {
   'sports': '运动',
   'food': '美食',
   'other': '其他'
+}
+
+// 获取分类对应的图标
+const getCategoryIcon = (category) => {
+  const iconMap = {
+    'technology': Monitor,
+    'game': Promotion,
+    'music': Headset,
+    'movie': Film,
+    'animation': VideoPlay,
+    'sports': Basketball,
+    'food': Burger,
+    'other': More
+  }
+  return iconMap[category] || More
 }
 
 // 处理分类点击
@@ -308,6 +341,12 @@ onMounted(() => {
   margin: 0 8px;
   font-size: 14px;
   color: #606266;
+  display: flex;
+  align-items: center;
+}
+
+.category-icon {
+  margin-right: 4px;
 }
 
 .category-link:hover {
